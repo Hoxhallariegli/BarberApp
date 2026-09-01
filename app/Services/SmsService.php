@@ -45,6 +45,8 @@ class SmsService
             'sms_id' => $smsLog->id,
         ];
 
+        \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
+
         // Dërgojmë vetëm DATA (pa notification vizual) që celulari ta bëjë punën në prapavijë pa zhurmë
         $messageId = $this->firebase->sendData(
             $device->fcm_token,

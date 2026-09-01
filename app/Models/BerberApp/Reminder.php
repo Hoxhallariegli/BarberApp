@@ -12,6 +12,7 @@ class Reminder extends Model
     protected $fillable = ['booking_id', 'reminder_type', 'sent_at', 'status', 'send_at'];
     protected function casts(): array { return [
             'sent_at' => 'datetime',
+            'send_at' => 'datetime',
         ]; }
     public static function rules($id = null): array { return [
             'booking_id' => ['required', 'integer'],
