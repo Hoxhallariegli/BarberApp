@@ -1,0 +1,205 @@
+### RREGULLAT PËR RELACIONET (DOT NOTATION) ###
+# Kur dëshiron të marrësh një fushë (p.sh 'name') nga një tabelë e lidhur (p.sh 'employees')
+# përmes një tabele ndërmjetëse (p.sh 'mechanics'), përdor rregullat e mëposhtme:
+#
+# 1. FORMATI: "relation_id`n8`nrelated_table`nRELATION.FIELD`nno"
+# 2. SHEMBULL (JobCard -> Mechanic -> Employee):
+#    Në vend të thjesht 'name', përdor 'employee.name'.
+#    Gjeneratori do të bëjë automatikisht:
+#    - Eager Loading: JobCard::with('mechanic.employee')
+#    - View Index: $item->mechanic?->employee?->name
+#    - Dropdown: Do të shfaqë emrin e punonjësit për çdo mekanik.
+#
+# 3. AUTO-LOAD (Cascading):
+#    Nëse në një formë ke dy dropdown-e të lidhura (p.sh Model dhe Brand),
+#    vendos Modelin pas Brand-it. Kur zgjedh Modelin, sistemi do të
+#    mbushë automatikisht Brand-in e duhur.
+
+-------------------------------------------------------------------------
+
+# Customer
+"name`n0`nno`nemail`n0`nyes`nphone`n0`nyes`n`nuser" | php artisan new:view Customer --api
+
+# VehicleBrand
+"name`n0`nno`n`ntag" | php artisan new:view VehicleBrand --api
+
+# VehicleModel
+"name`n0`nno`nbrand_id`n8`nvehicle_brands`nname`nno`n`ntag" | php artisan new:view VehicleModel --api
+
+# Vehicle (Auto-fill Brand kur zgjedh Model)
+"brand_id`n8`nvehicle_brands`nname`nno`nmodel_id`n8`nvehicle_models`nname`nno`nyear`n2`nyes`ncustomer_id`n8`ncustomers`nname`nno`nlicense_plate`n0`nyes`nvin`n0`nyes`n`ntruck" | php artisan new:view Vehicle --api
+
+# VehicleDocument
+"type`n0`nno`ndocument`n0`nno`nvehicle_id`n8`nvehicles`nlicense_plate`nno`n`ndocument" | php artisan new:view VehicleDocument --api
+
+# Employee
+"name`n0`nno`nemail`n0`nyes`nphone`n0`nyes`n`nuser" | php artisan new:view Employee --api
+
+# Mechanic
+"employee_id`n8`nemployees`nname`nno`nspecialization`n0`nyes`n`nuser" | php artisan new:view Mechanic --api
+
+# JobCard (Përdor employee.name për mekanikun - AUTO EAGER LOADING)
+"vehicle_id`n8`nvehicles`nlicense_plate`nno`ncustomer_id`n8`ncustomers`nname`nno`nmechanic_id`n8`nmechanics`nemployee.name`nno`nstatus`n0`nno`nopened_at`n7`nyes`nclosed_at`n7`nyes`n`nclipboard-document" | php artisan new:view JobCard --api
+
+# Service
+"name`n0`nno`nprice`n5`nno`nduration`n2`nyes`n`ntag" | php artisan new:view Service --api
+
+# Part
+"name`n0`nno`nprice`n5`nno`nstock`n2`nyes`n`ntag" | php artisan new:view Part --api
+
+# JobCardService
+"job_card_id`n8`njob_cards`nid`nno`nservice_id`n8`nservices`nname`nno`nquantity`n2`nno`nprice`n5`nno`n`ntag" | php artisan new:view JobCardService --api
+
+# JobCardPart
+"job_card_id`n8`njob_cards`nid`nno`npart_id`n8`nparts`nname`nno`nquantity`n2`nno`nprice`n5`nno`n`ntag" | php artisan new:view JobCardPart --api
+
+# Inventory
+"part_id`n8`nparts`nname`nno`nquantity`n2`nno`n`narchive-box" | php artisan new:view Inventory --api
+
+# Supplier
+"name`n0`nno`nemail`n0`nyes`nphone`n0`nyes`n`nuser" | php artisan new:view Supplier --api
+
+# PurchaseOrder
+"supplier_id`n8`nsuppliers`nname`nno`norder_date`n6`nno`nstatus`n0`nno`n`nclipboard-document" | php artisan new:view PurchaseOrder --api
+
+# PurchaseOrderItem
+"purchase_order_id`n8`npurchase_orders`nid`nno`npart_id`n8`nparts`nname`nno`nquantity`n2`nno`nprice`n5`nno`n`ntag" | php artisan new:view PurchaseOrderItem --api
+
+# Estimate
+"job_card_id`n8`njob_cards`nid`nno`nestimate_date`n6`nno`nstatus`n0`nno`n`nclipboard-document" | php artisan new:view Estimate --api
+
+# EstimateItem
+"estimate_id`n8`nestimates`nid`nno`nservice_id`n8`nservices`nname`nno`npart_id`n8`nparts`nname`nno`nquantity`n2`nno`n`ntag" | php artisan new:view EstimateItem --api
+
+# Invoice
+"job_card_id`n8`njob_cards`nid`nno`ninvoice_date`n6`nno`ntotal`n5`nno`nstatus`n0`nno`n`nclipboard-document" | php artisan new:view Invoice --api
+
+# InvoiceItem
+"invoice_id`n8`ninvoices`nid`nno`nservice_id`n8`nservices`nname`nno`npart_id`n8`nparts`nname`nno`nquantity`n2`nno`nprice`n5`nno`n`ntag" | php artisan new:view InvoiceItem --api
+
+# Appointment
+"vehicle_id`n8`nvehicles`nlicense_plate`nno`nappointment_date`n7`nno`nstatus`n0`nno`nnotes`n1`nyes`n`ncalendar" | php artisan new:view Appointment --api
+
+# Report
+"report_type`n0`nno`nreport_date`n6`nno`n`nchart-bar" | php artisan new:view Report --api
+
+
+
+
+### HIQ (Ekzekuto këto nëse do të rinisësh nga zero)
+
+php artisan remove:view Report
+php artisan remove:view Appointment
+php artisan remove:view InvoiceItem
+php artisan remove:view Invoice
+php artisan remove:view EstimateItem
+php artisan remove:view Estimate
+php artisan remove:view PurchaseOrderItem
+php artisan remove:view PurchaseOrder
+php artisan remove:view Supplier
+php artisan remove:view Inventory
+php artisan remove:view Part
+php artisan remove:view Service
+php artisan remove:view JobCardPart
+php artisan remove:view JobCardService
+php artisan remove:view JobCard
+php artisan remove:view Mechanic
+php artisan remove:view Employee
+php artisan remove:view VehicleDocument
+php artisan remove:view Vehicle
+php artisan remove:view VehicleModel
+php artisan remove:view VehicleBrand
+php artisan remove:view Customer
+
+
+
+php artisan tinker
+
+use App\Models\{Customer, VehicleBrand, VehicleModel, Vehicle, VehicleDocument, Employee, Mechanic, Service, Part, JobCard, JobCardService, JobCardPart, Inventory, Supplier, PurchaseOrder, PurchaseOrderItem, Estimate, EstimateItem, Invoice, InvoiceItem, Appointment, Report};
+use Illuminate\Support\Str;
+
+echo "🚀 Duke nisur popullimin e plotë të sistemit Enterprise...\n";
+
+// 1. Struktura e Makinave (Brands & Models)
+$brands = collect(['Toyota', 'Mercedes-Benz', 'BMW', 'Audi', 'Volkswagen', 'Ford'])->map(fn($n) => VehicleBrand::create(['name' => $n]));
+foreach ($brands as $brand) {
+    collect(['Sedan', 'SUV', 'Coupe'])->each(fn($m) => VehicleModel::create(['name' => $brand->name . " " . $m, 'brand_id' => $brand->id]));
+}
+echo "✅ Markat dhe Modelet u krijuan.\n";
+
+// 2. Njerëzit (Klientë, Furnitorë, Staf)
+for ($i = 0; $i < 15; $i++) {
+    Customer::create(['name' => fake()->name(), 'email' => fake()->unique()->safeEmail(), 'phone' => fake()->phoneNumber()]);
+    Supplier::create(['name' => fake()->company(), 'email' => fake()->unique()->safeEmail(), 'phone' => fake()->phoneNumber()]);
+    $emp = Employee::create(['name' => fake()->name(), 'email' => fake()->unique()->safeEmail(), 'phone' => fake()->phoneNumber()]);
+    if ($i < 5) Mechanic::create(['employee_id' => $emp->id, 'specialization' => fake()->randomElement(['Motorist', 'Elektriçist', 'Gomonier'])]);
+}
+echo "✅ Klientët, Furnitorët dhe Mekanikët u krijuan.\n";
+
+// 3. Inventari (Pjesë dhe Shërbime)
+$services = collect([
+    ['name' => 'Ndërrim Vaji Full', 'price' => 80.00, 'duration' => 45],
+    ['name' => 'Diagnostikë Kompjuteri', 'price' => 30.00, 'duration' => 20],
+    ['name' => 'Riparim Frenash', 'price' => 50.00, 'duration' => 60],
+    ['name' => 'Klimatizim Gas', 'price' => 40.00, 'duration' => 30]
+])->map(fn($s) => Service::create($s));
+
+$parts = collect([
+    ['name' => 'Vaj Castrol 5W30', 'price' => 15.00, 'stock' => 100],
+    ['name' => 'Filtër Vaji', 'price' => 10.00, 'stock' => 50],
+    ['name' => 'Pllaka Frenash', 'price' => 45.00, 'stock' => 20],
+    ['name' => 'Goma Continentals', 'price' => 120.00, 'stock' => 16]
+])->map(fn($p) => Part::create($p));
+
+foreach ($parts as $p) Inventory::create(['part_id' => $p->id, 'quantity' => $p->stock]);
+echo "✅ Shërbimet, Pjesët dhe Inventari u regjistruan.\n";
+
+// 4. Fluksi i Punës (Makinat -> JobCards -> Invoices)
+$customers = Customer::all();
+foreach ($customers->take(10) as $customer) {
+    $model = VehicleModel::inRandomOrder()->first();
+    $vehicle = Vehicle::create([
+        'brand_id' => $model->brand_id, 'model_id' => $model->id, 'year' => rand(2015, 2024),
+        'customer_id' => $customer->id, 'license_plate' => 'AA '.rand(100,999).' '.strtoupper(Str::random(2)),
+        'vin' => strtoupper(Str::random(17))
+    ]);
+
+    // Shto Dokument
+    VehicleDocument::create(['type' => 'Leje Qarkullimi', 'document' => 'uploads/docs/licence_'.Str::random(5).'.pdf', 'vehicle_id' => $vehicle->id]);
+
+    // Takim
+    Appointment::create(['vehicle_id' => $vehicle->id, 'appointment_date' => now()->addDays(rand(1, 10)), 'status' => 'Pending']);
+
+    // Kartela e Punës
+    $jc = JobCard::create([
+        'vehicle_id' => $vehicle->id, 'customer_id' => $customer->id,
+        'mechanic_id' => Mechanic::inRandomOrder()->first()->id,
+        'status' => 'Completed', 'opened_at' => now()->subHours(5), 'closed_at' => now()
+    ]);
+
+    // Lidhja me Shërbime dhe Pjesë
+    $serv = $services->random();
+    $prt = $parts->random();
+    JobCardService::create(['job_card_id' => $jc->id, 'service_id' => $serv->id, 'quantity' => 1, 'price' => $serv->price]);
+    JobCardPart::create(['job_card_id' => $jc->id, 'part_id' => $prt->id, 'quantity' => 1, 'price' => $prt->price]);
+
+    // Estimimi
+    $est = Estimate::create(['job_card_id' => $jc->id, 'estimate_date' => now()->subHours(4), 'status' => 'Approved']);
+    EstimateItem::create(['estimate_id' => $est->id, 'service_id' => $serv->id, 'part_id' => $prt->id, 'quantity' => 1]);
+
+    // Fatura Finale
+    $inv = Invoice::create(['job_card_id' => $jc->id, 'invoice_date' => now(), 'total' => ($serv->price + $prt->price), 'status' => 'Paid']);
+    InvoiceItem::create(['invoice_id' => $inv->id, 'service_id' => $serv->id, 'part_id' => $prt->id, 'quantity' => 1, 'price' => ($serv->price + $prt->price)]);
+}
+echo "✅ Procesi i punës (JobCards & Invoices) u gjenerua.\n";
+
+// 5. Furnizimet dhe Raportet
+$supplier = Supplier::first();
+$po = PurchaseOrder::create(['supplier_id' => $supplier->id, 'order_date' => now(), 'status' => 'Received']);
+PurchaseOrderItem::create(['purchase_order_id' => $po->id, 'part_id' => Part::first()->id, 'quantity' => 50, 'price' => 12.50]);
+
+Report::create(['report_type' => 'Monthly Revenue', 'report_date' => now()]);
+Report::create(['report_type' => 'Inventory Status', 'report_date' => now()]);
+
+echo "\n✨ SISTEMI U MBUSH PLOTËSISHT! ✨\n";
+echo "Tani mund të shkosh te Dashboard dhe të shohësh statistikat reale.\n";
