@@ -31,7 +31,7 @@ class Reminders extends Component
 ], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
 
         return view('livewire.admin.berber-app.reminders.index', [
-            'items' => $query->paginate($this->paginate),
+            'items' => $query->with(['booking.barber', 'booking.customer', 'booking.service'])->paginate($this->paginate),
             'sortableFields' => Reminder::sortable(),
             'bookings' => \App\Models\BerberApp\Booking::pluck('id', 'id')->toArray(),
         ])->layout('components.layouts.app')->title(__('reminders.Reminders'));

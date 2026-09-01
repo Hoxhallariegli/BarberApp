@@ -35,7 +35,7 @@ class Bookings extends Component
 ], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
 
         return view('livewire.admin.berber-app.bookings.index', [
-            'items' => $query->paginate($this->paginate),
+            'items' => $query->with(['customer', 'barber', 'service'])->paginate($this->paginate),
             'sortableFields' => Booking::sortable(),
             'customers' => \App\Models\BerberApp\Customer::pluck('name', 'id')->toArray(),
             'barbers' => \App\Models\BerberApp\Barber::pluck('name', 'id')->toArray(),

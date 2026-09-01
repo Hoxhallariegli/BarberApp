@@ -41,7 +41,7 @@ class SmsController extends Controller
         $request->validate([
             'sms_id' => 'required_without:fcm_message_id',
             'fcm_message_id' => 'required_without:sms_id',
-            'status' => 'required|in:sent,failed',
+            'status' => 'required|string', // sent, failed, processing
             'error_message' => 'nullable|string',
         ]);
 
@@ -53,21 +53,20 @@ class SmsController extends Controller
         }
 
         if (!$smsLog) {
-            return response()->json([
-                'success' => false,
-                'message' => 'SMS log not found',
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'SMS log not found'], 404);
         }
 
-        $smsLog->update([
+        $updateData = [
             'status' => $request->status,
-            'sent_at' => $request->status === 'sent' ? now() : null,
             'error_message' => $request->error_message,
-        ]);
+        ];
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Status updated successfully',
-        ]);
+        if ($request->status === 'sent') {
+            $updateData['sent_at'] = now();
+        }
+
+        $smsLog->update($updateData);
+
+        return response()->json(['success' => true, 'message' => 'Status updated: ' . $request->status]);
     }
 }
