@@ -1,13 +1,21 @@
 <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-none border-b border-gray-50 dark:border-gray-700/50 last:border-none">
     <td class="px-6 py-5 font-bold text-blue-600 dark:text-blue-400">{{ $item->id }}</td>
-    <td class="px-6 py-5 font-bold text-gray-900 dark:text-white">{{ $item->booking?->id ?? '-' }}</td>
-<td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->reminder_type }}</td>
-<td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->sent_at?->format('d/m/Y H:i') ?? '-' }}</td>
+    <td class="px-6 py-5 font-bold text-gray-900 dark:text-white">#{{ $item->booking?->id ?? '-' }}</td>
+    <td class="px-6 py-5">
+        @if($item->status === 'sent')
+            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-50 text-green-600">Sent</span>
+        @elseif($item->status === 'pending')
+            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-600">Pending</span>
+        @elseif($item->status === 'processing')
+            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600">Processing</span>
+        @else
+            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-500">{{ $item->status }}</span>
+        @endif
+    </td>
+    <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->send_at?->format('d/m H:i') ?? '-' }}</td>
+    <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->sent_at?->format('d/m H:i') ?? '-' }}</td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
-            @can('edit_reminders')
-                <x-a href="{{ route('admin.reminders.edit', $item) }}" class="!rounded-xl !bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none">{{ __('admin.Edit') }}</x-a>
-            @endcan
             @can('delete_reminders')
                 <div x-data="{ confirmation: '' }" x-cloak class="inline-block">
                     <x-modal>

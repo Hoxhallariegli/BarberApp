@@ -53,7 +53,7 @@ class SmsSettings extends Component
 
     public function triggerReminders(): void
     {
-        Artisan::call('sms:reminders');
+        Artisan::call('berber:send-reminders');
 
         $this->dispatch('toast', ['message' => __('Reminder command triggered!'), 'type' => 'success']);
     }
