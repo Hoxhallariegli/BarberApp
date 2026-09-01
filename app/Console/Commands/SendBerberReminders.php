@@ -29,6 +29,9 @@ class SendBerberReminders extends Command
             ->get();
 
         foreach ($reminders as $reminder) {
+            // Mark as processing immediately to avoid duplicates in next minute cycle
+            $reminder->update(['status' => 'processing']);
+
             $booking = $reminder->booking;
 
             if (!$booking || $booking->status === 'cancelled') {
