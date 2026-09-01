@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Add Service')]
 class Create extends Component
 {
     use WithPagination;
@@ -29,7 +28,7 @@ class Create extends Component
     public function render() {
         abort_if_cannot('add_services');
         return view('livewire.admin.berber-app.services.create', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('services.Add Service'));
     }
     public function store(CreateServiceAction $action) {
         $this->validate();

@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Bookings')]
 class Bookings extends Component
 {
         use WithPagination;
@@ -41,7 +40,7 @@ class Bookings extends Component
             'customers' => \App\Models\BerberApp\Customer::pluck('name', 'id')->toArray(),
             'barbers' => \App\Models\BerberApp\Barber::pluck('name', 'id')->toArray(),
             'services' => \App\Models\BerberApp\Service::pluck('name', 'id')->toArray(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('bookings.Bookings'));
     }
 
     public function sortBy($field) { if (!in_array($field, Booking::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }

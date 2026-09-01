@@ -12,7 +12,6 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 
-#[Title('Barbers')]
 class Barbers extends Component
 {
         use WithPagination, WithFileUploads;
@@ -33,7 +32,7 @@ class Barbers extends Component
         return view('livewire.admin.berber-app.barbers.index', [
             'items' => $query->paginate($this->paginate),
             'sortableFields' => Barber::sortable(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('barbers.Barbers'));
     }
 
     public function sortBy($field) { if (!in_array($field, Barber::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }

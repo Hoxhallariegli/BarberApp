@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Payments')]
 class Payments extends Component
 {
         use WithPagination;
@@ -35,7 +34,7 @@ class Payments extends Component
             'items' => $query->paginate($this->paginate),
             'sortableFields' => Payment::sortable(),
             'bookings' => \App\Models\BerberApp\Booking::pluck('id', 'id')->toArray(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('payments.Payments'));
     }
 
     public function sortBy($field) { if (!in_array($field, Payment::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }

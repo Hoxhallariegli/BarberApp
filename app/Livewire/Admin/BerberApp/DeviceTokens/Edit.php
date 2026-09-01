@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Edit DeviceToken')]
 class Edit extends Component
 {
         use WithPagination;
@@ -24,7 +23,7 @@ class Edit extends Component
     public function render() {
         abort_if_cannot('edit_device_tokens');
         return view('livewire.admin.berber-app.device-tokens.edit', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('device-tokens.Edit DeviceToken'));
     }
     public function update(UpdateDeviceTokenAction $action) { $this->validate();  $dto = DeviceTokenDTO::fromArray([
             'user_id' => $this->user_id,

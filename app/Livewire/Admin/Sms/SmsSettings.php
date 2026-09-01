@@ -31,7 +31,7 @@ class SmsSettings extends Component
 
         return view('livewire.admin.sms.sms-settings', [
             'activeDevice' => $activeDevice,
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('sms.SMS Settings'));
     }
 
     public function sendTestSms(SmsService $smsService): void

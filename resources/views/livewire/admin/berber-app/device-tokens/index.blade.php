@@ -2,7 +2,7 @@
     <div class="card !p-0 overflow-hidden shadow-none border-gray-200 dark:border-gray-700 dark:bg-gray-800">
         <div class="p-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div><x-h1>{{ __('device-tokens.DeviceTokens') }}</x-h1><x-short-description class="dark:text-gray-400">{{ __('device-tokens.List of') }} devicetokens</x-short-description></div>
+                <div><x-h1>{{ __('device-tokens.DeviceTokens') }}</x-h1><x-short-description class="dark:text-gray-400">{{ __('device-tokens.List of') }} {{ strtolower(__('device-tokens.DeviceTokens')) }}</x-short-description></div>
                 <div class="flex items-center gap-3">
                     @if($search || $openFilter)
                         <button wire:click="resetFilters" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-none shadow-none"><span>{{ __('device-tokens.Reset') }}</span></button>
@@ -16,7 +16,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                         <label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('device-tokens.Search') }}</label>
-                        <input name="search" wire:model.live.debounce.300ms="search" type="text" placeholder="Search by ID, Fcm_Token, Device_Type" class="w-full p-3 text-sm font-bold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 dark:text-white">
+                        <input name="search" wire:model.live.debounce.300ms="search" type="text" :placeholder="__('device-tokens.Search') . '...'" class="w-full p-3 text-sm font-bold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 dark:text-white">
                     </div>
 
                 </div>

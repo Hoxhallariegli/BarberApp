@@ -12,7 +12,6 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 
-#[Title('Add Customer')]
 class Create extends Component
 {
         use WithPagination, WithFileUploads;
@@ -24,7 +23,7 @@ class Create extends Component
     public function render() {
         abort_if_cannot('add_customers');
         return view('livewire.admin.berber-app.customers.create', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('customers.Add Customer'));
     }
     public function store(CreateCustomerAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/customers', 'uploads'); }
  $dto = CustomerDTO::fromArray([

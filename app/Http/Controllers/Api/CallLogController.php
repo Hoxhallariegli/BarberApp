@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CallLog;
-use App\Models\Client;
+use App\Models\BerberApp\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -39,8 +39,8 @@ class CallLogController extends Controller
             return response()->json(['success' => true, 'message' => 'Duplicate call ignored']);
         }
 
-        $client = Client::where('phone', 'like', '%' . substr($phoneNumber, -8) . '%')->first();
-        $callerName = $request->caller_name ?? ($client ? $client->name : 'Unknown');
+        $customer = Customer::where('phone', 'like', '%' . substr($phoneNumber, -8) . '%')->first();
+        $callerName = $request->caller_name ?? ($customer ? $customer->name : 'Unknown');
 
         try {
             CallLog::create([
@@ -48,7 +48,7 @@ class CallLogController extends Controller
                 'caller_name' => $callerName,
                 'type' => $request->type ?? 'incoming',
                 'call_time' => now(), // SHTOJME KOHEN KETU
-                'is_client' => (bool)$client,
+                'is_client' => (bool)$customer,
             ]);
             Log::info('--- SMS GATEWAY: Success! Call logged for ' . $callerName);
         } catch (\Exception $e) {

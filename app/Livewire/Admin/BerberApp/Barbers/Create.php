@@ -12,7 +12,6 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 
-#[Title('Add Barber')]
 class Create extends Component
 {
         use WithPagination, WithFileUploads;
@@ -25,7 +24,7 @@ class Create extends Component
     public function render() {
         abort_if_cannot('add_barbers');
         return view('livewire.admin.berber-app.barbers.create', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('barbers.Add Barber'));
     }
     public function store(CreateBarberAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/barbers', 'uploads'); }
  $dto = BarberDTO::fromArray([

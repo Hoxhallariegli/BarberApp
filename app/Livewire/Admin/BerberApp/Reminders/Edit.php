@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Edit Reminder')]
 class Edit extends Component
 {
         use WithPagination;
@@ -39,7 +38,7 @@ class Edit extends Component
         abort_if_cannot('edit_reminders');
         return view('livewire.admin.berber-app.reminders.edit', [
             'bookings' => $this->getbookingsList(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('reminders.Edit Reminder'));
     }
     public function update(UpdateReminderAction $action) { $this->validate();  $dto = ReminderDTO::fromArray([
             'booking_id' => $this->booking_id,

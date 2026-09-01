@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Edit Booking')]
 class Edit extends Component
 {
         use WithPagination;
@@ -70,7 +69,7 @@ class Edit extends Component
             'customers' => $this->getcustomersList(),
             'barbers' => $this->getbarbersList(),
             'services' => $this->getservicesList(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('bookings.Edit Booking'));
     }
     public function update(UpdateBookingAction $action) { $this->validate();  $dto = BookingDTO::fromArray([
             'customer_id' => $this->customer_id,

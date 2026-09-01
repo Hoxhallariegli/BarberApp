@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Services')]
 class Services extends Component
 {
         use WithPagination;
@@ -32,7 +31,7 @@ class Services extends Component
         return view('livewire.admin.berber-app.services.index', [
             'items' => $query->paginate($this->paginate),
             'sortableFields' => Service::sortable(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('services.Services'));
     }
 
     public function sortBy($field) { if (!in_array($field, Service::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }

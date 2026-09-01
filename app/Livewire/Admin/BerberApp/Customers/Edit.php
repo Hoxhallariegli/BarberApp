@@ -12,7 +12,6 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 
-#[Title('Edit Customer')]
 class Edit extends Component
 {
         use WithPagination, WithFileUploads;
@@ -26,7 +25,7 @@ class Edit extends Component
     public function render() {
         abort_if_cannot('edit_customers');
         return view('livewire.admin.berber-app.customers.edit', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('customers.Edit Customer'));
     }
     public function update(UpdateCustomerAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/customers', 'uploads'); }
  $dto = CustomerDTO::fromArray([

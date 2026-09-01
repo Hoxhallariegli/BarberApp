@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Edit Service')]
 class Edit extends Component
 {
     use WithPagination;
@@ -41,7 +40,7 @@ class Edit extends Component
     public function render() {
         abort_if_cannot('edit_services');
         return view('livewire.admin.berber-app.services.edit', [
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('services.Edit Service'));
     }
     public function update(UpdateServiceAction $action) {
         $this->validate();

@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('Edit Payment')]
 class Edit extends Component
 {
         use WithPagination;
@@ -39,7 +38,7 @@ class Edit extends Component
         abort_if_cannot('edit_payments');
         return view('livewire.admin.berber-app.payments.edit', [
             'bookings' => $this->getbookingsList(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('payments.Edit Payment'));
     }
     public function update(UpdatePaymentAction $action) { $this->validate();  $dto = PaymentDTO::fromArray([
             'booking_id' => $this->booking_id,

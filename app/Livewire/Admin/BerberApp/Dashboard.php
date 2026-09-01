@@ -9,7 +9,6 @@ use App\Models\BerberApp\Barber;
 use App\Models\BerberApp\Service;
 use Carbon\Carbon;
 
-#[Title('Berber App Dashboard')]
 class Dashboard extends Component
 {
     public function render()
@@ -19,6 +18,6 @@ class Dashboard extends Component
             'totalBarbers' => Barber::count(),
             'totalServices' => Service::count(),
             'recentBookings' => Booking::with(['barber', 'service', 'customer'])->latest()->take(5)->get(),
-        ]);
+        ])->title(__('admin.Berber App Dashboard'));
     }
 }

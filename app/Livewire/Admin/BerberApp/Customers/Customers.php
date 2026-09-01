@@ -12,7 +12,6 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 
-#[Title('Customers')]
 class Customers extends Component
 {
         use WithPagination, WithFileUploads;
@@ -33,7 +32,7 @@ class Customers extends Component
         return view('livewire.admin.berber-app.customers.index', [
             'items' => $query->paginate($this->paginate),
             'sortableFields' => Customer::sortable(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('customers.Customers'));
     }
 
     public function sortBy($field) { if (!in_array($field, Customer::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }

@@ -39,12 +39,18 @@ class SmsController extends Controller
     public function statusUpdate(Request $request)
     {
         $request->validate([
-            'fcm_message_id' => 'required|string',
+            'sms_id' => 'required_without:fcm_message_id',
+            'fcm_message_id' => 'required_without:sms_id',
             'status' => 'required|in:sent,failed',
             'error_message' => 'nullable|string',
         ]);
 
-        $smsLog = SmsLog::where('fcm_message_id', $request->fcm_message_id)->first();
+        $smsLog = null;
+        if ($request->sms_id) {
+            $smsLog = SmsLog::find($request->sms_id);
+        } elseif ($request->fcm_message_id) {
+            $smsLog = SmsLog::where('fcm_message_id', $request->fcm_message_id)->first();
+        }
 
         if (!$smsLog) {
             return response()->json([

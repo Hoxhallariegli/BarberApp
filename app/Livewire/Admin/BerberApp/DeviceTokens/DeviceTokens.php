@@ -11,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\On;
 
-#[Title('DeviceTokens')]
 class DeviceTokens extends Component
 {
         use WithPagination;
@@ -32,7 +31,7 @@ class DeviceTokens extends Component
         return view('livewire.admin.berber-app.device-tokens.index', [
             'items' => $query->paginate($this->paginate),
             'sortableFields' => DeviceToken::sortable(),
-        ])->layout('components.layouts.app');
+        ])->layout('components.layouts.app')->title(__('device-tokens.DeviceTokens'));
     }
 
     public function sortBy($field) { if (!in_array($field, DeviceToken::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }
