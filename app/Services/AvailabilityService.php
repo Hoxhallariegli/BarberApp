@@ -24,6 +24,22 @@ class AvailabilityService
         $start = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->start_time);
         $end = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->end_time);
 
+        // If the date is today, ensure we only start from the current time (+ a small buffer if needed)
+        if ($date->isToday()) {
+            $now = Carbon::now();
+            if ($start->lt($now)) {
+                $start = $now->copy();
+
+                // Round to the next 15-minute interval for a cleaner start
+                $minutes = ceil($start->minute / 15) * 15;
+                if ($minutes == 60) {
+                    $start->addHour()->startOfHour();
+                } else {
+                    $start->minute($minutes)->second(0);
+                }
+            }
+        }
+
         $slots = [];
         $interval = CarbonInterval::minutes(15); // Check every 15 minutes for a starting point
 
