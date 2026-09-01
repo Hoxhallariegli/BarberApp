@@ -1,19 +1,26 @@
 <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-none border-b border-gray-50 dark:border-gray-700/50 last:border-none">
     <td class="px-6 py-5 font-bold text-blue-600 dark:text-blue-400">{{ $item->id }}</td>
-    <td class="px-6 py-5 font-bold text-gray-900 dark:text-white">#{{ $item->booking?->id ?? '-' }}</td>
+    <td class="px-6 py-5">
+        <div class="font-bold text-gray-900 dark:text-white">
+            {{ $item->booking?->customer_name ?: ($item->booking?->customer?->name ?? 'Klient i panjohur') }}
+        </div>
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-black">
+            Rezervimi #{{ $item->booking_id }} • Berber: {{ $item->booking?->barber?->name ?? '-' }}
+        </div>
+    </td>
     <td class="px-6 py-5">
         @if($item->status === 'sent')
-            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-50 text-green-600">Sent</span>
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-50 text-green-600 border border-green-100">Sent</span>
         @elseif($item->status === 'pending')
-            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-600">Pending</span>
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-700 border border-yellow-100">Pending</span>
         @elseif($item->status === 'processing')
-            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600">Processing</span>
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">Processing</span>
         @else
-            <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-500">{{ $item->status }}</span>
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-500">{{ $item->status }}</span>
         @endif
     </td>
-    <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->send_at?->format('d/m H:i') ?? '-' }}</td>
-    <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->sent_at?->format('d/m H:i') ?? '-' }}</td>
+    <td class="px-6 py-5 text-gray-600 dark:text-gray-300 font-medium italic">{{ $item->send_at?->format('d/m H:i') ?? '-' }}</td>
+    <td class="px-6 py-5 text-gray-600 dark:text-gray-300 font-medium">{{ $item->sent_at?->format('d/m H:i') ?? '-' }}</td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
             @can('delete_reminders')

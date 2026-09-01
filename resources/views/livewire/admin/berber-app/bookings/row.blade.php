@@ -1,9 +1,22 @@
 <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-none border-b border-gray-50 dark:border-gray-700/50 last:border-none">
     <td class="px-6 py-5 font-bold text-blue-600 dark:text-blue-400">{{ $item->id }}</td>
-    <td class="px-6 py-5 font-bold text-gray-900 dark:text-white">{{ $item->customer?->name ?? '-' }}</td>
-<td class="px-6 py-5 font-bold text-gray-900 dark:text-white">{{ $item->barber?->name ?? '-' }}</td>
-<td class="px-6 py-5 font-bold text-gray-900 dark:text-white">{{ $item->service?->name ?? '-' }}</td>
-<td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->appointment_datetime?->format('d/m/Y H:i') ?? '-' }}</td>
+    <td class="px-6 py-5">
+        <div class="font-bold text-gray-900 dark:text-white">{{ $item->customer_name ?: ($item->customer?->name ?? '-') }}</div>
+        <div class="text-[10px] text-gray-400 font-medium">{{ $item->customer_phone ?: ($item->customer?->phone ?? '-') }}</div>
+    </td>
+    <td class="px-6 py-5 font-bold text-gray-900 dark:text-white">
+        <div class="flex items-center gap-2">
+            <div class="size-6 rounded-lg bg-brass/10 flex items-center justify-center text-brass-deep text-[10px]">{{ substr($item->barber?->name ?? 'A', 0, 1) }}</div>
+            {{ $item->barber?->name ?? '-' }}
+        </div>
+    </td>
+    <td class="px-6 py-5">
+        <span class="px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[11px] font-bold">{{ $item->service?->name ?? '-' }}</span>
+    </td>
+    <td class="px-6 py-5 text-gray-600 dark:text-gray-300 font-medium">
+        {{ $item->appointment_datetime?->format('d/m/Y') }}
+        <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest">{{ $item->appointment_datetime?->format('H:i') }}</div>
+    </td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
             @can('edit_bookings')
