@@ -80,7 +80,7 @@ class FirebaseService
                 return str_contains($name, 'messages/') ? explode('messages/', $name)[1] : $name;
             }
 
-            Log::error('Firebase API Response: ' . $response->body());
+            Log::error('Firebase API Error Response: ' . $response->status() . ' - ' . $response->body());
             return null;
         } catch (\Exception $e) {
             Log::error('Firebase Notification Error: ' . $e->getMessage());

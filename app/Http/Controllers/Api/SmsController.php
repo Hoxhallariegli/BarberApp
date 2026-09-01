@@ -38,6 +38,12 @@ class SmsController extends Controller
 
     public function statusUpdate(Request $request)
     {
+        \Illuminate\Support\Facades\Log::info("SMS GATEWAY FEEDBACK:", $request->all());
+
+        if ($request->status === 'debug_log') {
+            return response()->json(['success' => true]);
+        }
+
         $request->validate([
             'sms_id' => 'required_without:fcm_message_id',
             'fcm_message_id' => 'required_without:sms_id',

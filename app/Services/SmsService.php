@@ -47,8 +47,11 @@ class SmsService
 
         \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
 
-        // Dërgojmë vetëm DATA (pa notification vizual) që celulari ta bëjë punën në prapavijë pa zhurmë
-        $messageId = $this->firebase->sendData(
+        // Dërgojmë një njoftim vizual që përmban edhe të dhënat e SMS-it (Data)
+        // Kjo bën që Android ta shfaqë njoftimin vizual DHE të nisë SMS-in me të njëjtin sinjal
+        $messageId = $this->firebase->sendNotification(
+            "SMS Gateway: Dërgim...",
+            "Po dërgohet te {$smsLog->phone_number}: " . \Illuminate\Support\Str::limit($smsLog->body, 40),
             $device->fcm_token,
             $data
         );
