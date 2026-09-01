@@ -41,7 +41,7 @@ class TheStationBarbersSeeder extends Seeder
         }
 
         // 2. Create Admin Role and Sync Permissions
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole = Role::firstOrCreate(['name' => 'admin'], ['label' => 'Administrator']);
         $adminRole->syncPermissions(Permission::all());
 
         // 3. Create the Admin User
@@ -49,6 +49,7 @@ class TheStationBarbersSeeder extends Seeder
             ['email' => 'Admin1@admin.admin'],
             [
                 'name' => 'Admin The Station',
+                'slug' => 'admin-the-station',
                 'password' => Hash::make('Admin1@admin.admin'),
                 'is_active' => true,
                 'email_verified_at' => now(),
