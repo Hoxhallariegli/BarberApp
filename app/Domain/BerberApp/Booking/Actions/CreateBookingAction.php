@@ -30,7 +30,10 @@ class CreateBookingAction
         if ($phone) {
             $smsService = app(\App\Services\SmsService::class);
             $time = Carbon::parse($item->appointment_datetime)->format('H:i d/m/Y');
-            $message = "Ju bëtë aplikim në websitin tonë në këtë orar: {$time}. Faleminderit!";
+            $baseUrl = config('app.url');
+            $confirmUrl = rtrim($baseUrl, '/') . "/confirm/{$item->token}";
+
+            $message = "Ju bëtë aplikim në websitin tonë në këtë orar: {$time}. Mund ta menaxhoni këtu: {$confirmUrl}";
             $smsService->send($phone, $message);
         }
 

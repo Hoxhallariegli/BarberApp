@@ -49,7 +49,10 @@ class SendBerberReminders extends Command
             $customerPhone = $booking->customer_phone ?: ($booking->customer ? $booking->customer->phone : null);
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
 
-            $confirmUrl = url("/confirm/{$booking->token}");
+            // Use config APP_URL to ensure links are correct even in CLI
+            $baseUrl = config('app.url');
+            $confirmUrl = rtrim($baseUrl, '/') . "/confirm/{$booking->token}";
+
             $body = "Përshëndetje {$customerName}, keni një rezervim në oren {$time}. Konfirmoni: {$confirmUrl}";
 
             $sent = false;
