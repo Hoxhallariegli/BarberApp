@@ -108,7 +108,8 @@ class FirebaseService
                     'token' => $token,
                     'data' => array_map('strval', $data),
                     'android' => [
-                        'priority' => 'high'
+                        'priority' => 'high',
+                        'ttl' => '0s' // Dërgoje menjëherë, mos e mbaj në pritje
                     ]
                 ]
             ]);
