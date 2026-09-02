@@ -105,9 +105,8 @@ class Landing extends Component
         $phone = '+' . $phone;
 
         // LIMITOJME GJATESINE (Sigurohemi qe nuk kemi shifra te teperta)
-        // +355 (4) + 67/68/69 (2) + 7 shifra = 12 karaktere ne total
         if (strlen($phone) > 13) {
-             // Heqim shifrat e teperta nese u shkruan gabim
+             // Heqim shifrat e teperta nese u shkruan gabim (+355 + 9 shifra = 13)
              $phone = substr($phone, 0, 13);
         }
 
