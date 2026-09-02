@@ -4,7 +4,7 @@
 <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->specialization }}</td>
 <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->phone }}</td>
 <td class="px-6 py-5 text-gray-600 dark:text-gray-300">{{ $item->commission_rate }}</td>
-<td class="px-6 py-5">@if($item->photo) <a href="{{ asset('uploads/'.$item->photo) }}" target="_blank" rel="noopener"><img src="{{ asset('uploads/'.$item->photo) }}" class="w-10 h-10 object-cover rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm"></a> @else - @endif</td>
+<td class="px-6 py-5">@if($item->photo) <a href="{{ asset($item->photo) }}" target="_blank" rel="noopener"><img src="{{ asset($item->photo) }}" class="w-10 h-10 object-cover rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm"></a> @else - @endif</td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
             @can('edit_barbers')

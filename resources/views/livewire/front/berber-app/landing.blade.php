@@ -188,7 +188,7 @@
                     <div class="group text-center p-10 rounded-[3rem] bg-paper dark:bg-ink-elevated border border-gray-200 dark:border-gray-800 hover:border-brass/40 transition-all duration-300 shadow-sm hover:shadow-xl">
                         <div class="relative size-44 mx-auto mb-8 rounded-[2.5rem] overflow-hidden ring-1 ring-gray-200 dark:ring-gray-800 group-hover:ring-brass/50 transition-all duration-500">
                             @if($item->photo)
-                                <img src="{{ asset('uploads/'.$item->photo) }}" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100">
+                                <img src="{{ asset($item->photo) }}" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100">
                             @else
                                 <div class="w-full h-full bg-paper-soft dark:bg-ink-soft flex items-center justify-center font-display text-7xl text-brass/40">{{ substr($item->name, 0, 1) }}</div>
                             @endif
