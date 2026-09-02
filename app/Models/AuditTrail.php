@@ -46,8 +46,13 @@ class AuditTrail extends Model
 
     public static function log($model, string $type, string $section): void
     {
+        // Përdorim array_map për të siguruar që vlerat decimal të serializohen saktë
         $oldValues = $type === 'update' ? array_intersect_key($model->getOriginal(), $model->getDirty()) : null;
         $newValues = $type === 'update' ? $model->getDirty() : ($type === 'create' ? $model->toArray() : null);
+
+        // Sigurohemi që çdo vlerë në array të jetë e tipit primitiv (string, int, float) për JSON
+        if ($oldValues) $oldValues = json_decode(json_encode($oldValues), true);
+        if ($newValues) $newValues = json_decode(json_encode($newValues), true);
 
         self::create([
             'user_id' => auth()->id(),

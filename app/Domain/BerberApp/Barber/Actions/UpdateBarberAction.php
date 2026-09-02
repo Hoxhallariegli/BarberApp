@@ -10,9 +10,15 @@ class UpdateBarberAction
 {
     public function execute(Barber $model, BarberDTO $dto): Barber
     {
-        $model->fill($dto->toArray());
+        $data = $dto->toArray();
+        // Sigurohemi që nëse komisioni është bosh ose jo numerik, të ruhet si null
+        $data['commission_rate'] = (isset($data['commission_rate']) && is_numeric($data['commission_rate']))
+            ? $data['commission_rate']
+            : null;
+
+        $model->update($data);
         AuditTrail::log($model, 'update', 'Barbers');
-        $model->save();
+
         return $model->fresh();
     }
 }
