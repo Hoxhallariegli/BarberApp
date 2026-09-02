@@ -53,7 +53,7 @@ class SendBerberReminders extends Command
             $baseUrl = config('app.url');
             $confirmUrl = rtrim($baseUrl, '/') . "/confirm/{$booking->token}";
 
-            $body = "Përshëndetje {$customerName}, keni një rezervim në oren {$time}. Konfirmoni: {$confirmUrl}";
+            $body = "Përshëndetje {$customerName}, keni lënë takim sot në orën {$time}. Ju lutem konfirmoni nëse do të vini në këtë link: {$confirmUrl}";
 
             $sent = false;
 
