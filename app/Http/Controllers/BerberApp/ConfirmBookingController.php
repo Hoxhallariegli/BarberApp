@@ -1,5 +1,8 @@
 <?php
 
+namespace App\Http\Controllers\BerberApp;
+
+use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Booking;
 use App\Models\SmsDevice;
 use App\Services\FirebaseService;
