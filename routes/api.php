@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\CallLogController;
 use App\Http\Controllers\Api\SmsController;
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Support\Facades\Log;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -20,6 +20,10 @@ use Illuminate\Support\Facades\Route;
 Route::post('/calls/log', [CallLogController::class, 'log']);
 Route::post('/sms/register', [SmsController::class, 'register']);
 Route::post('/sms/status', [SmsController::class, 'statusUpdate']);
+Route::post('/sms/debug', function(Request $request) {
+    Log::warning("APK DEBUG: " . $request->message, $request->all());
+    return response()->json(['success' => true]);
+});
 
 // Call Job Status update (referenced in mobile app main.dart)
 Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $request) {

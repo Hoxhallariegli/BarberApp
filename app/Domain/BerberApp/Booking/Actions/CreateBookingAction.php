@@ -34,7 +34,15 @@ class CreateBookingAction
             $confirmUrl = rtrim($baseUrl, '/') . "/confirm/{$item->token}";
 
             $message = "Ju bëtë aplikim në websitin tonë në këtë orar: {$time}. Mund ta menaxhoni këtu: {$confirmUrl}";
-            $smsService->send($phone, $message);
+
+            // Shtojmë njoftim për Adminin/APK-në
+            $extraData = [
+                'show_notification' => 'true',
+                'notification_title' => "Rezervim i Ri!",
+                'notification_body' => "Klienti {$item->customer_name} rezervoi në orën {$time}"
+            ];
+
+            $smsService->send($phone, $message, 'booking_confirmation', null, $extraData);
         }
 
         // Schedule Reminder (30 minutes before)

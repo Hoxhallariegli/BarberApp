@@ -47,10 +47,14 @@ class SmsService
 
         \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
 
-        // Përdorim sendData në vend të sendNotification për dërgim të sigurt në background
+        // Përdorim sendData me HIGH PRIORITY që APK ta kapë menjëherë në background
         $messageId = $this->firebase->sendData(
             $device->fcm_token,
-            $data
+            array_merge($data, [
+                'notification_title' => $extraData['notification_title'] ?? "SMS Gateway: Dërgim...",
+                'notification_body' => $extraData['notification_body'] ?? "Po dërgohet te {$smsLog->phone_number}",
+                'show_notification' => 'true'
+            ])
         );
 
         if ($messageId) {
