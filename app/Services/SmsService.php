@@ -16,7 +16,7 @@ class SmsService
         $this->firebase = $firebase;
     }
 
-    public function send(string $phone, string $body, string $type = 'promotional', ?int $jobId = null)
+    public function send(string $phone, string $body, string $type = 'promotional', ?int $jobId = null, array $extraData = [])
     {
         $smsLog = SmsLog::create([
             'phone_number' => $phone,
@@ -26,10 +26,10 @@ class SmsService
             'job_id' => $jobId,
         ]);
 
-        return $this->dispatchToGateway($smsLog);
+        return $this->dispatchToGateway($smsLog, $extraData);
     }
 
-    public function dispatchToGateway(SmsLog $smsLog)
+    public function dispatchToGateway(SmsLog $smsLog, array $extraData = [])
     {
         $device = SmsDevice::where('is_active', true)->first();
 
@@ -38,12 +38,12 @@ class SmsService
             return false;
         }
 
-        $data = [
+        $data = array_merge([
             'action' => 'SEND_SMS',
             'phone' => $smsLog->phone_number,
             'body' => $smsLog->body,
             'sms_id' => $smsLog->id,
-        ];
+        ], $extraData);
 
         \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
 

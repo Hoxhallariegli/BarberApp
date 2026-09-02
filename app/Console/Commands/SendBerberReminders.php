@@ -57,11 +57,17 @@ class SendBerberReminders extends Command
 
             $sent = false;
 
-            // 1. Dërgo SMS-in
+            // 1. Dërgo SMS-in (dhe njoftimin brenda tij)
             if ($customerPhone) {
                 try {
-                    // Kjo dërgon sinjalin te celulari
-                    if ($this->smsService->send($customerPhone, $body, 'reminder')) {
+                    // Shtojmë të dhëna ekstra që APK-ja të shfaqë njoftimin për berberin
+                    $extraData = [
+                        'show_notification' => 'true',
+                        'notification_title' => "Kujtesë: Klienti po vjen",
+                        'notification_body' => "Klienti {$customerName} ka takimin në orën {$time}"
+                    ];
+
+                    if ($this->smsService->send($customerPhone, $body, 'reminder', null, $extraData)) {
                         $sent = true;
                     }
                 } catch (\Exception $e) {
@@ -75,13 +81,6 @@ class SendBerberReminders extends Command
                     'status' => 'sent',
                     'sent_at' => now(),
                 ]);
-
-                // 3. Opsionale: Njofto berberin (në një bllok veçmas që mos të bllokojë SMS-in)
-                try {
-                    $this->notifyBarberAboutReminder($booking);
-                } catch (\Exception $e) {
-                    Log::error("Barber notification failed: " . $e->getMessage());
-                }
             } else {
                 // Nëse dështoi sinjali i Firebase, ktheje në pending për t'u riprovuar
                 $reminder->update(['status' => 'pending']);

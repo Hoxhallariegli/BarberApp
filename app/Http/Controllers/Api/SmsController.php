@@ -7,6 +7,7 @@ use App\Models\SmsDevice;
 use App\Models\SmsLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class SmsController extends Controller
 {
