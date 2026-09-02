@@ -18,16 +18,28 @@ class SmsController extends Controller
             'api_key' => 'nullable|string',
         ]);
 
-        $apiKey = $request->api_key ?? Str::random(32);
+        // Nëse nuk ka API Key, kontrollojmë nëse kjo pajisje (sipas tokenit) ekziston
+        $apiKey = $request->api_key;
+        if (!$apiKey) {
+            $existingDevice = SmsDevice::where('fcm_token', $request->fcm_token)->first();
+            $apiKey = $existingDevice ? $existingDevice->api_key : Str::random(32);
+        }
+
+        // Çaktivizojmë TOTALISHT çdo pajisje tjetër
+        SmsDevice::query()->update(['is_active' => false]);
 
         $device = SmsDevice::updateOrCreate(
             ['api_key' => $apiKey],
             [
                 'fcm_token' => $request->fcm_token,
-                'device_name' => $request->device_name,
-                'is_active' => true,
+                'device_name' => $request->device_name ?? 'Station Gateway',
+                'is_active' => true, // Sigurohemi që është TRUE
             ]
         );
+
+        // E detyrojmë të jetë active edhe njëherë për siguri
+        $device->is_active = true;
+        $device->save();
 
         return response()->json([
             'success' => true,
@@ -38,10 +50,12 @@ class SmsController extends Controller
 
     public function statusUpdate(Request $request)
     {
-        \Illuminate\Support\Facades\Log::info("SMS GATEWAY FEEDBACK:", $request->all());
+        Log::info("SMS GATEWAY FEEDBACK:", $request->all());
 
-        if ($request->status === 'debug_log') {
-            return response()->json(['success' => true]);
+        // Verifikojmë që pajisja është e jona
+        $device = SmsDevice::where('api_key', $request->api_key)->first();
+        if (!$device) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized device'], 401);
         }
 
         $request->validate([

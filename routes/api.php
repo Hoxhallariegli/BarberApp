@@ -27,7 +27,8 @@ Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $re
     if ($job) {
         $job->update([
             'status' => $request->status,
-            'error_message' => $request->error_message
+            'error_message' => $request->error_message,
+            'updated_at' => $request->occurred_at ?? now(),
         ]);
         return response()->json(['success' => true]);
     }
