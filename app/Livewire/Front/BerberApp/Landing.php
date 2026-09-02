@@ -92,11 +92,22 @@ class Landing extends Component
             $barberId = Barber::where('active', true)->first()->id;
         }
 
+        // Sigurohemi që numri të ketë prefiksin +355 për SMS Gateway
+        $phone = $this->customerPhone;
+        // Heqim çdo karakter që nuk është numër
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        if (!str_starts_with($phone, '355')) {
+            // Heqim zero-n fillestare nëse ekziston (psh 069 -> 69)
+            $phone = '355' . ltrim($phone, '0');
+        }
+        $phone = '+' . $phone;
+
         $dto = \App\Domain\BerberApp\Booking\DTOs\BookingDTO::fromArray([
             'barber_id' => $barberId,
             'service_id' => $this->selectedServiceId,
             'customer_name' => $this->customerName,
-            'customer_phone' => $this->customerPhone,
+            'customer_phone' => $phone,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
             'status' => 'pending',
             'reminder_enabled' => $this->allowNotifications,

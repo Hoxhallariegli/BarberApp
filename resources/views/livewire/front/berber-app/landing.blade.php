@@ -323,7 +323,10 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold uppercase tracking-widest text-ink/45 dark:text-paper/45 mb-2 ml-1">{{ __('front/berber-app.phone_number') }}</label>
-                                <input type="tel" wire:model="customerPhone" placeholder="069 XX XX XXX" class="w-full p-3.5 bg-paper dark:bg-ink-soft border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-semibold">
+                                <div class="flex items-center gap-2">
+                                    <div class="shrink-0 px-4 py-3.5 bg-paper dark:bg-ink-soft border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-black text-ink/50 dark:text-paper/50">+355</div>
+                                    <input type="tel" wire:model="customerPhone" placeholder="69 XX XX XXX" class="flex-1 p-3.5 bg-paper dark:bg-ink-soft border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-semibold">
+                                </div>
                                 @error('customerPhone') <span class="text-rose-500 text-xs mt-1 ml-1 block">{{ $message }}</span> @enderror
                             </div>
                         </div>
