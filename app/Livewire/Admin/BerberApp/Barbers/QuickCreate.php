@@ -31,7 +31,7 @@ class QuickCreate extends Component
     public function store(CreateBarberAction $action)
     {
         $this->validate();
-        if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/barbers', 'uploads'); }
+        if ($this->photo && !is_string($this->photo)) { $this->photo = 'uploads/' . $this->photo->store('barbers', 'uploads'); }
         $dto = BarberDTO::fromArray([
             'name' => $this->name,
             'specialization' => $this->specialization,

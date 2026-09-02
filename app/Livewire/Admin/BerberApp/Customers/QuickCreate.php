@@ -30,7 +30,7 @@ class QuickCreate extends Component
     public function store(CreateCustomerAction $action)
     {
         $this->validate();
-        if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/customers', 'uploads'); }
+        if ($this->photo && !is_string($this->photo)) { $this->photo = 'uploads/' . $this->photo->store('customers', 'uploads'); }
         $dto = CustomerDTO::fromArray([
             'name' => $this->name,
             'phone' => $this->phone,

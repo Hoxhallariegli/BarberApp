@@ -25,7 +25,7 @@ class Create extends Component
         return view('livewire.admin.berber-app.customers.create', [
         ])->layout('components.layouts.app')->title(__('customers.Add Customer'));
     }
-    public function store(CreateCustomerAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/customers', 'uploads'); }
+    public function store(CreateCustomerAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = 'uploads/' . $this->photo->store('customers', 'uploads'); }
  $dto = CustomerDTO::fromArray([
             'name' => $this->name,
             'phone' => $this->phone,

@@ -28,7 +28,7 @@ class Edit extends Component
         return view('livewire.admin.berber-app.barbers.edit', [
         ])->layout('components.layouts.app')->title(__('barbers.Edit Barber'));
     }
-    public function update(UpdateBarberAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = $this->photo->store('uploads/barbers', 'uploads'); }
+    public function update(UpdateBarberAction $action) { $this->validate();         if ($this->photo && !is_string($this->photo)) { $this->photo = 'uploads/' . $this->photo->store('barbers', 'uploads'); }
  $dto = BarberDTO::fromArray([
             'name' => $this->name,
             'specialization' => $this->specialization,
