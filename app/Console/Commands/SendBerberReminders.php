@@ -19,6 +19,7 @@ class SendBerberReminders extends Command
     {
         $reminders = Reminder::where('status', 'pending')
             ->where('send_at', '<=', Carbon::now())
+            ->with(['booking']) // Shtojmë këtë që të lejojë leximin e rezervimit
             ->get();
 
         foreach ($reminders as $reminder) {
