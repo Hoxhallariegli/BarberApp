@@ -35,10 +35,10 @@ class CreateBookingAction
 
             $message = "Ju bëtë aplikim në websitin tonë në këtë orar: {$time}. Mund ta menaxhoni këtu: {$confirmUrl}";
 
-            // Shtojmë njoftim për Adminin/APK-në
+            // Dërgojmë vetëm NJË sinjal që bën edhe SMS-in edhe njoftimin për Adminin
             $extraData = [
                 'show_notification' => 'true',
-                'notification_title' => "Rezervim i Ri!",
+                'notification_title' => "Rezervim i Ri! 🆕",
                 'notification_body' => "Klienti {$item->customer_name} rezervoi në orën {$time}"
             ];
 
