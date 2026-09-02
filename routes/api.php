@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\Log;
 Route::post('/calls/log', [CallLogController::class, 'log']);
 Route::post('/sms/register', [SmsController::class, 'register']);
 Route::post('/sms/status', [SmsController::class, 'statusUpdate']);
-Route::post('/sms/debug', function(Request $request) {
-    Log::warning("APK DEBUG: " . $request->message, $request->all());
+Route::post('/sms/debug', function(\Illuminate\Http\Request $request) {
+    \Illuminate\Support\Facades\Log::warning("APK DEBUG: " . $request->input('message'), $request->all());
     return response()->json(['success' => true]);
 });
 
