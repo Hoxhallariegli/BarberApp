@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 class SendBerberReminders extends Command
 {
     protected $signature = 'berber:send-reminders';
-    protected $description = 'Dërgon njoftimet SMS dhe Push për rezervimet 30 min para';
+    protected $description = 'Dërgon njoftimet SMS për rezervimet 30 min para';
 
     public function __construct(
         protected FirebaseService $firebaseService,
@@ -24,83 +24,43 @@ class SendBerberReminders extends Command
     public function handle()
     {
         $now = Carbon::now();
-        // Marrim rikujtesat që duhen dërguar dhe janë ende në pritje
         $reminders = Reminder::where('status', 'pending')
             ->where('send_at', '<=', $now)
-            ->with(['booking.barber', 'booking.service'])
+            ->with(['booking.barber', 'booking.customer'])
             ->get();
 
-        if ($reminders->isEmpty()) {
-            return;
-        }
+        if ($reminders->isEmpty()) return;
 
         foreach ($reminders as $reminder) {
             $booking = $reminder->booking;
-
             if (!$booking || $booking->status === 'cancelled') {
                 $reminder->update(['status' => 'cancelled']);
                 continue;
             }
 
-            // Shënoje si 'processing' MENJËHERË që cikli tjetër i minutës mos ta kapë përsëri
             $reminder->update(['status' => 'processing']);
 
             $customerName = $booking->customer_name ?: ($booking->customer ? $booking->customer->name : 'Klient');
             $customerPhone = $booking->customer_phone ?: ($booking->customer ? $booking->customer->phone : null);
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
+            $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
 
-            // Use config APP_URL to ensure links are correct even in CLI
-            $baseUrl = config('app.url');
-            $confirmUrl = rtrim($baseUrl, '/') . "/confirm/{$booking->token}";
+            $body = "Pershendetje {$customerName}, keni lene takim sot ne oren {$time}. Ju lutem konfirmoni ne link: {$confirmUrl}";
 
-            $body = "Përshëndetje {$customerName}, keni lënë takim sot në orën {$time}. Ju lutem konfirmoni nëse do të vini në këtë link: {$confirmUrl}";
-
-            $sent = false;
-
-            // 1. Dërgo SMS-in (dhe njoftimin brenda tij)
             if ($customerPhone) {
-                try {
-                    // Shtojmë të dhëna ekstra që APK-ja të shfaqë njoftimin për berberin
-                    $extraData = [
-                        'show_notification' => 'true',
-                        'notification_title' => "Kujtesë: Klienti po vjen",
-                        'notification_body' => "Klienti {$customerName} ka takimin në orën {$time}"
-                    ];
+                $extraData = [
+                    'show_notification' => 'true',
+                    'notification_title' => "Kujtesë: Klienti po vjen",
+                    'notification_body' => "Klienti {$customerName} ka takimin në orën {$time}"
+                ];
 
-                    if ($this->smsService->send($customerPhone, $body, 'reminder', null, $extraData)) {
-                        $sent = true;
-                    }
-                } catch (\Exception $e) {
-                    Log::error("Reminder SMS failed: " . $e->getMessage());
+                if ($this->smsService->send($customerPhone, $body, 'reminder', null, $extraData)) {
+                    $reminder->update(['status' => 'sent', 'sent_at' => now()]);
+                } else {
+                    $reminder->update(['status' => 'pending']);
                 }
             }
-
-            // 2. Nëse u dërgua sinjali, shënoje rikujtesën si të përfunduar
-            if ($sent) {
-                $reminder->update([
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                ]);
-            } else {
-                // Nëse dështoi sinjali i Firebase, ktheje në pending për t'u riprovuar
-                $reminder->update(['status' => 'pending']);
-            }
         }
-
-        $this->info("Procesi përfundoi për " . $reminders->count() . " rikujtesa.");
-    }
-
-    protected function notifyBarberAboutReminder($booking)
-    {
-        if (!$booking->barber) return;
-
-        // Dërgojmë njoftim te pajisja aktive e adminit për t'i thënë që klienti po vjen
-        $title = "Kujtesë: Klienti po vjen";
-        $body = "Klienti " . ($booking->customer_name ?: 'i panjohur') . " ka takimin në orën " . Carbon::parse($booking->appointment_datetime)->format('H:i');
-
-        $device = \App\Models\SmsDevice::where('is_active', true)->first();
-        if ($device) {
-            $this->firebaseService->sendNotification($title, $body, $device->fcm_token);
-        }
+        $this->info("Procesi perfundoi.");
     }
 }
