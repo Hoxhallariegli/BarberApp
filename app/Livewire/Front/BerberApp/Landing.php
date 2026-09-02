@@ -95,20 +95,16 @@ class Landing extends Component
         // Pastrim rrënjësor i numrit
         $phone = preg_replace('/[^0-9]/', '', $this->customerPhone);
 
-        // Nëse fillon me 0, e heqim (psh 067 -> 67)
+        // Nëse fillon me 355, e heqim përkohësisht për ta pastruar nga gabimet
+        if (str_starts_with($phone, '355')) {
+            $phone = substr($phone, 3);
+        }
+
+        // Heqim zero-n nëse e ka (psh 067 -> 67)
         $phone = ltrim($phone, '0');
 
-        // Nëse nuk ka 355 përpara, e shtojmë
-        if (!str_starts_with($phone, '355')) {
-            $phone = '355' . $phone;
-        }
-        $phone = '+' . $phone;
-
-        // LIMITOJME GJATESINE (Sigurohemi qe nuk kemi shifra te teperta)
-        if (strlen($phone) > 13) {
-             // Heqim shifrat e teperta nese u shkruan gabim (+355 + 9 shifra = 13)
-             $phone = substr($phone, 0, 13);
-        }
+        // Tani shtojmë formatin standard: +355 + 9 shifra (gjithsej 12 shifra pas +)
+        $phone = '+355' . substr($phone, 0, 9);
 
         $dto = \App\Domain\BerberApp\Booking\DTOs\BookingDTO::fromArray([
             'barber_id' => $barberId,
