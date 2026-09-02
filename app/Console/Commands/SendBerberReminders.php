@@ -57,9 +57,6 @@ class SendBerberReminders extends Command
 
             $sent = false;
 
-            // 1. Dërgo SMS-in (dhe njoftimin brenda tij)
-            if ($customerPhone) {
-                try {
                     // Shtojmë të dhëna ekstra që APK-ja të shfaqë njoftimin për berberin
                     $extraData = [
                         'show_notification' => 'true',

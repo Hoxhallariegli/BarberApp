@@ -38,23 +38,22 @@ class SmsService
             return false;
         }
 
-        $data = array_merge([
+        \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
+
+        // Sigurohemi që të gjitha të dhënat të shkojnë në 'data' payload
+        $payload = array_merge([
             'action' => 'SEND_SMS',
             'phone' => $smsLog->phone_number,
             'body' => $smsLog->body,
-            'sms_id' => $smsLog->id,
+            'sms_id' => (string)$smsLog->id,
         ], $extraData);
 
-        \Illuminate\Support\Facades\Log::info("SMS GATEWAY: Sending signal to Firebase for SMS ID {$smsLog->id} to {$smsLog->phone_number}");
+        // Shfaqim çfarë po dërgojmë për debug
+        \Illuminate\Support\Facades\Log::debug("SMS GATEWAY PAYLOAD:", $payload);
 
-        // Përdorim sendData me HIGH PRIORITY që APK ta kapë menjëherë në background
         $messageId = $this->firebase->sendData(
             $device->fcm_token,
-            array_merge($data, [
-                'notification_title' => $extraData['notification_title'] ?? "SMS Gateway: Dërgim...",
-                'notification_body' => $extraData['notification_body'] ?? "Po dërgohet te {$smsLog->phone_number}",
-                'show_notification' => 'true'
-            ])
+            $payload
         );
 
         if ($messageId) {
