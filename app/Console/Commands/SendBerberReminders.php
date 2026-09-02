@@ -29,23 +29,26 @@ class SendBerberReminders extends Command
             }
 
             $customerName = $booking->customer_name ?: 'Klient';
-            $customerPhone = $booking->customer_phone;
+
+            // PASTRIMI I NUMRIT (Saktësisht si te Landing)
+            $phone = preg_replace('/[^0-9]/', '', $booking->customer_phone);
+            if (str_starts_with($phone, '355')) { $phone = substr($phone, 3); }
+            $phone = '+355' . substr(ltrim($phone, '0'), 0, 9);
+
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
             $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
 
-            // Mesazhi i plote me link
-            $body = "Pershendetje {$customerName}, keni lene takim sot ne oren {$time}. Konfirmoni ketu: {$confirmUrl}";
+            // Mesazh pak më i shkurtër që të mos bllokohet nga rrjeti
+            $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time}. Konfirmoni ketu: {$confirmUrl}";
 
-            if ($customerPhone) {
-                $extraData = [
-                    'show_notification' => 'true',
-                    'notification_title' => "Rikujtesë: Klienti po vjen",
-                    'notification_body' => "Klienti {$customerName} ka takimin në {$time}"
-                ];
+            $extraData = [
+                'show_notification' => 'true',
+                'notification_title' => "Rikujtesë: Takimi i orës {$time}",
+                'notification_body' => "Po i dërgohet SMS klientit {$customerName}"
+            ];
 
-                if ($this->smsService->send($customerPhone, $body, 'reminder', null, $extraData)) {
-                    $reminder->update(['status' => 'sent', 'sent_at' => now()]);
-                }
+            if ($this->smsService->send($phone, $body, 'reminder', null, $extraData)) {
+                $reminder->update(['status' => 'sent', 'sent_at' => now()]);
             }
         }
     }
