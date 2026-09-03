@@ -36,15 +36,17 @@ class SendBerberReminders extends Command
             if (str_starts_with($phone, '355')) { $phone = substr($phone, 3); }
             $phone = '+355' . substr(ltrim($phone, '0'), 0, 9);
 
-            $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
+            $dt = Carbon::parse($booking->appointment_datetime);
+            $time = $dt->format('H:i');
+            $date = $dt->format('d/m/Y');
             $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
 
             // Use SMS Template
             $template = \App\Models\SmsTemplate::getTemplate('reminder');
             if ($template) {
                 $body = str_replace(
-                    ['{name}', '{time}', '{link_confirm}'],
-                    [$customerName, $time, $confirmUrl],
+                    ['{name}', '{time}', '{date}', '{link_confirm}'],
+                    [$customerName, $time, $date, $confirmUrl],
                     $template
                 );
             } else {

@@ -17,6 +17,7 @@ return [
     'Message Body' => 'Trupi i Mesazhit',
     'Type your test message here...' => 'Shkruani mesazhin tuaj të testimit këtu...',
     'Send Test SMS' => 'Dërgo SMS Test',
+    'SMS Templates' => 'Template SMS',
     'SMS sent successfully!' => 'SMS u dërgua me sukses!',
     'Failed to send SMS. Check device status.' => 'Dërgimi i SMS dështoi. Kontrolloni pajisjen.',
     'Reminder command triggered!' => 'Komanda e rikujtesave u nis!',

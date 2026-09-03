@@ -27,14 +27,16 @@ class CreateBookingAction
         $phone = $item->customer_phone ?: ($item->customer ? $item->customer->phone : null);
         if ($phone) {
             $smsService = app(\App\Services\SmsService::class);
-            $time = Carbon::parse($item->appointment_datetime)->format('H:i');
+            $dt = Carbon::parse($item->appointment_datetime);
+            $time = $dt->format('H:i');
+            $date = $dt->format('d/m/Y');
 
             // Use SMS Template
             $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation');
             if ($template) {
                 $message = str_replace(
-                    ['{name}', '{time}'],
-                    [$item->customer_name ?: 'Klient', $time],
+                    ['{name}', '{time}', '{date}'],
+                    [$item->customer_name ?: 'Klient', $time, $date],
                     $template
                 );
             } else {

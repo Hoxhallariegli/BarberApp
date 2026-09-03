@@ -3,8 +3,12 @@
 namespace App\Livewire\Admin\BerberApp\Bookings;
 
 use App\Models\BerberApp\Booking;
+use App\Models\BerberApp\Barber;
+use App\Models\BerberApp\Service;
 use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use App\Domain\BerberApp\Booking\Actions\UpdateBookingAction;
+use App\Services\AvailabilityService;
+use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Title;
@@ -13,41 +17,60 @@ use Livewire\Attributes\On;
 
 class Edit extends Component
 {
-        use WithPagination;
- public Booking $item;
+    use WithPagination;
+
+    public Booking $item;
     public $customer_id = '';
     public $barber_id = '';
     public $service_id = '';
-    public $appointment_datetime = '';
+    public $selectedDate = '';
+    public $selectedTime = '';
+
+    public function mount(Booking $booking)
+    {
+        $this->item = $booking;
+        $this->customer_id = $booking->customer_id;
+        $this->barber_id = $booking->barber_id;
+        $this->service_id = $booking->service_id;
+        $this->selectedDate = $booking->appointment_datetime?->format('Y-m-d');
+        $this->selectedTime = $booking->appointment_datetime?->format('H:i');
+    }
 
     #[On('customer-created')]
-    public function refreshCustomers($id) { $this->customer_id = $id; $this->updatedCustomerId($id); }
+    public function refreshCustomers($id) { $this->customer_id = $id; }
 
     #[On('barber-created')]
-    public function refreshBarbers($id) { $this->barber_id = $id; $this->updatedBarberId($id); }
+    public function refreshBarbers($id) { $this->barber_id = $id; }
 
     #[On('service-created')]
-    public function refreshServices($id) { $this->service_id = $id; $this->updatedServiceId($id); }
+    public function refreshServices($id) { $this->service_id = $id; }
 
-    public function updatedCustomerId($value)
-    {
-        if (!$value) return;
-        $related = \App\Models\BerberApp\Customer::find($value);
-        if (!$related) return;
-    }
+    public function updatedBarberId() { $this->selectedTime = ''; }
+    public function updatedServiceId() { $this->selectedTime = ''; }
+    public function updatedSelectedDate() { $this->selectedTime = ''; }
 
-    public function updatedBarberId($value)
+    public function getAvailableSlotsProperty()
     {
-        if (!$value) return;
-        $related = \App\Models\BerberApp\Barber::find($value);
-        if (!$related) return;
-    }
+        if (!$this->selectedDate || !$this->service_id || !$this->barber_id) return [];
 
-    public function updatedServiceId($value)
-    {
-        if (!$value) return;
-        $related = \App\Models\BerberApp\Service::find($value);
-        if (!$related) return;
+        $service = Service::find($this->service_id);
+        $barber = Barber::find($this->barber_id);
+
+        if (!$service || !$barber) return [];
+
+        $availabilityService = app(AvailabilityService::class);
+        $slots = $availabilityService->getAvailableSlots($barber, Carbon::parse($this->selectedDate), $service->duration_minutes ?: 30);
+
+        // Add the current booking's time back to the available slots if it's the same day
+        if ($this->item->appointment_datetime && $this->item->appointment_datetime->format('Y-m-d') === $this->selectedDate) {
+            $currentTime = $this->item->appointment_datetime->format('H:i');
+            if (!in_array($currentTime, $slots)) {
+                $slots[] = $currentTime;
+                sort($slots);
+            }
+        }
+
+        return $slots;
     }
 
     protected function getcustomersList() {
@@ -55,27 +78,42 @@ class Edit extends Component
     }
 
     protected function getbarbersList() {
-        return \App\Models\BerberApp\Barber::pluck('name', 'id')->toArray();
+        return Barber::pluck('name', 'id')->toArray();
     }
 
     protected function getservicesList() {
-        return \App\Models\BerberApp\Service::pluck('name', 'id')->toArray();
+        return Service::pluck('name', 'id')->toArray();
     }
 
-    public function mount(Booking $booking) { $this->item = $booking; $this->fill($booking->toArray()); $this->appointment_datetime = $booking->appointment_datetime?->format('Y-m-d\TH:i'); }
     public function render() {
         abort_if_cannot('edit_bookings');
         return view('livewire.admin.berber-app.bookings.edit', [
             'customers' => $this->getcustomersList(),
             'barbers' => $this->getbarbersList(),
             'services' => $this->getservicesList(),
+            'availableSlots' => $this->availableSlots,
         ])->layout('components.layouts.app')->title(__('bookings.Edit Booking'));
     }
-    public function update(UpdateBookingAction $action) { $this->validate();  $dto = BookingDTO::fromArray([
+
+    public function update(UpdateBookingAction $action)
+    {
+        $this->validate([
+            'customer_id' => 'required',
+            'barber_id' => 'required',
+            'service_id' => 'required',
+            'selectedDate' => 'required|date',
+            'selectedTime' => 'required',
+        ]);
+
+        $dto = BookingDTO::fromArray([
             'customer_id' => $this->customer_id,
             'barber_id' => $this->barber_id,
             'service_id' => $this->service_id,
-            'appointment_datetime' => $this->appointment_datetime,
-        ]); $action->execute($this->item, $dto); session()->flash('success', __('bookings.updated')); return to_route('admin.bookings.index'); }
-    protected function rules(): array { return Booking::rules($this->item->id); }
+            'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
+        ]);
+
+        $action->execute($this->item, $dto);
+        session()->flash('success', __('bookings.updated'));
+        return to_route('admin.bookings.index');
+    }
 }

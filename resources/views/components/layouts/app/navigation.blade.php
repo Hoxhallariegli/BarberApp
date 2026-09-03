@@ -10,6 +10,7 @@
     <x-nav.link route="admin.payments.index" icon="banknotes">{{ __('payments.Payments') }}</x-nav.link>
     <x-nav.link route="admin.reminders.index" icon="bell">{{ __('reminders.Reminders') }}</x-nav.link>
     <x-nav.link route="admin.sms.index" icon="chat-bubble-bottom-center-text">{{ __('sms.SMS Settings') }}</x-nav.link>
+    <x-nav.link route="admin.sms.templates" icon="document-text">{{ __('sms.SMS Templates') }}</x-nav.link>
 @endcan
 
 @if(can('view_system_settings') || can('view_roles') || can('view_audit_trails'))

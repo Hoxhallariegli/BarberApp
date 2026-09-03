@@ -113,7 +113,7 @@
                         </div>
 
                         <div class="mt-2 flex flex-wrap gap-2">
-                            @foreach(['{name}', '{time}', '{link_confirm}'] as $tag)
+                            @foreach(['{name}', '{date}', '{time}', '{link_confirm}'] as $tag)
                                 <button type="button" @click="if(activeTab === 'sq') $wire.set('body.sq', $wire.get('body.sq') + '{{ $tag }}'); else $wire.set('body.en', $wire.get('body.en') + '{{ $tag }}')" class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-[8px] font-black uppercase text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                                     {{ $tag }}
                                 </button>

@@ -17,6 +17,7 @@ return [
     'Message Body' => 'Message Body',
     'Type your test message here...' => 'Type your test message here...',
     'Send Test SMS' => 'Send Test SMS',
+    'SMS Templates' => 'SMS Templates',
     'SMS sent successfully!' => 'SMS sent successfully!',
     'Failed to send SMS. Check device status.' => 'Failed to send SMS. Check device status.',
     'Reminder command triggered!' => 'Reminder command triggered!',
