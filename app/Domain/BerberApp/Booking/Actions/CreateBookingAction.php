@@ -28,7 +28,7 @@ class CreateBookingAction
         if ($phone) {
             $smsService = app(\App\Services\SmsService::class);
             $time = Carbon::parse($item->appointment_datetime)->format('H:i');
-            $date = Carbon::parse($item->appointment_datetime)->format('d/m/Y');
+            $date = Carbon::parse($item->appointment_datetime)->format('d/m');
 
             // Use SMS Template
             $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation');
@@ -39,7 +39,7 @@ class CreateBookingAction
                     $template
                 );
             } else {
-                $message = "STATION: Rezervimi juaj u krye me sukses per oren {$time}.";
+                $message = "STATION: Rezervimi u krye per oren {$time} - {$date}.";
             }
 
             $extraData = [

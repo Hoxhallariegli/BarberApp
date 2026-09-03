@@ -37,19 +37,21 @@ class SendBerberReminders extends Command
             $phone = '+355' . substr(ltrim($phone, '0'), 0, 9);
 
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
-            $date = Carbon::parse($booking->appointment_datetime)->format('d/m/Y');
+            $date = Carbon::parse($booking->appointment_datetime)->format('d/m');
             $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
+            // Shorten URL by removing https://
+            $shortUrl = str_replace(['https://', 'http://'], '', $confirmUrl);
 
             // Use SMS Template
             $template = \App\Models\SmsTemplate::getTemplate('reminder');
             if ($template) {
                 $body = str_replace(
                     ['{name}', '{time}', '{date}', '{link_confirm}'],
-                    [$customerName, $time, $date, $confirmUrl],
+                    [$customerName, $time, $date, $shortUrl],
                     $template
                 );
             } else {
-                $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time} {$date}. Konfirmo ketu: {$confirmUrl}";
+                $body = "STATION: Takim ne {$time} - {$date}. Konfirmo: {$shortUrl}";
             }
 
             $extraData = [
