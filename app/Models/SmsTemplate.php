@@ -10,6 +10,7 @@ class SmsTemplate extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'type',
         'body',
         'is_active',
