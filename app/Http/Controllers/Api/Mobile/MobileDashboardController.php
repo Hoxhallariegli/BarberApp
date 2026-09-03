@@ -14,6 +14,8 @@ use App\Models\SmsLog;
 use App\Models\SmsDevice;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class MobileDashboardController extends Controller
 {
@@ -37,16 +39,108 @@ class MobileDashboardController extends Controller
 
     public function barbers()
     {
-        return response()->json(Barber::all());
+        $barbers = Barber::with('schedules')->get()->map(function($barber) {
+            $barber->photo_url = $barber->photo ? url(Storage::url($barber->photo)) : null;
+            return $barber;
+        });
+        return response()->json($barbers);
+    }
+
+    public function getBarber($id)
+    {
+        $barber = Barber::with('schedules')->findOrFail($id);
+        $barber->photo_url = $barber->photo ? url(Storage::url($barber->photo)) : null;
+        return response()->json($barber);
+    }
+
+    public function updateBarber(Request $request, $id)
+    {
+        $barber = Barber::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string',
+            'specialization' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'commission_rate' => 'nullable|numeric',
+        ]);
+
+        $barber->update($validated);
+
+        if ($request->has('schedules')) {
+            foreach ($request->schedules as $schedData) {
+                $barber->schedules()->updateOrCreate(
+                    ['day_of_week' => $schedData['day_of_week']],
+                    $schedData
+                );
+            }
+        }
+
+        return response()->json(['success' => true, 'barber' => $barber->load('schedules')]);
     }
 
     public function bookings()
     {
         return response()->json(
             Booking::with(['customer', 'barber', 'service'])
-                ->latest()
-                ->paginate(20)
+                ->orderBy('appointment_datetime', 'desc')
+                ->paginate(30)
         );
+    }
+
+    public function storeBooking(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:ba_customers,id',
+            'barber_id' => 'required|exists:ba_barbers,id',
+            'service_id' => 'required|exists:ba_services,id',
+            'appointment_datetime' => 'required|date',
+            'status' => 'nullable|string',
+        ]);
+
+        $booking = Booking::create($validated);
+        return response()->json(['success' => true, 'booking' => $booking->load(['customer', 'barber', 'service'])]);
+    }
+
+    public function updateBooking(Request $request, $id)
+    {
+        $booking = Booking::findOrFail($id);
+        $validated = $request->validate([
+            'barber_id' => 'required|exists:ba_barbers,id',
+            'service_id' => 'required|exists:ba_services,id',
+            'appointment_datetime' => 'required|date',
+            'status' => 'required|string',
+        ]);
+
+        $booking->update($validated);
+        return response()->json(['success' => true, 'booking' => $booking->load(['customer', 'barber', 'service'])]);
+    }
+
+    public function completePayment(Request $request, $bookingId)
+    {
+        Log::info("Mobile Payment Request for Booking: $bookingId", $request->all());
+
+        $request->validate([
+            'amount' => 'required|numeric',
+        ]);
+
+        try {
+            $booking = Booking::findOrFail($bookingId);
+
+            $payment = Payment::create([
+                'booking_id' => $booking->id,
+                'amount' => $request->amount,
+                'status' => 'completed',
+            ]);
+
+            $booking->update(['status' => 'completed']);
+
+            Log::info("Payment Successful for Booking: $bookingId");
+
+            return response()->json(['success' => true, 'payment' => $payment]);
+        } catch (\Exception $e) {
+            Log::error("Payment Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function customers()
@@ -54,9 +148,35 @@ class MobileDashboardController extends Controller
         return response()->json(Customer::latest()->paginate(20));
     }
 
+    public function updateCustomer(Request $request, $id)
+    {
+        $customer = Customer::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required|string',
+            'phone' => 'nullable|string',
+            'email' => 'nullable|email',
+        ]);
+
+        $customer->update($validated);
+        return response()->json(['success' => true, 'customer' => $customer]);
+    }
+
     public function services()
     {
         return response()->json(Service::all());
+    }
+
+    public function updateService(Request $request, $id)
+    {
+        $service = Service::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required', // Can be string or array/JSON
+            'price' => 'required|numeric',
+            'duration_minutes' => 'nullable|integer',
+        ]);
+
+        $service->update($validated);
+        return response()->json(['success' => true, 'service' => $service]);
     }
 
     public function payments()
@@ -84,7 +204,6 @@ class MobileDashboardController extends Controller
 
     public function smsSettings()
     {
-        // Kthejmë pajisjen aktive dhe disa statistika të SMS
         return response()->json([
             'device' => SmsDevice::where('is_active', true)->first(),
             'logs_count' => SmsLog::count(),

@@ -46,8 +46,15 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
     Route::get('/barbers', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'barbers']);
+    Route::get('/barbers/{id}', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'getBarber']);
+    Route::post('/barbers/{id}', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'updateBarber']);
     Route::get('/bookings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'bookings']);
+    Route::post('/bookings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'storeBooking']);
+    Route::post('/bookings/{id}', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'updateBooking']);
+    Route::post('/bookings/{id}/payment', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'completePayment']);
     Route::get('/customers', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'customers']);
+    Route::post('/customers/{id}', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'updateCustomer']);
+    Route::post('/services/{id}', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'updateService']);
     Route::get('/services', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'services']);
     Route::get('/payments', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'payments']);
     Route::get('/reminders', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'reminders']);
