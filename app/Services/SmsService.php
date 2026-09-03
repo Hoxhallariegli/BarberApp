@@ -46,7 +46,6 @@ class SmsService
             'phone' => $smsLog->phone_number,
             'body' => $smsLog->body,
             'sms_id' => (string)$smsLog->id,
-            'id' => (string)$smsLog->id,
         ], $extraData);
 
         // Shfaqim çfarë po dërgojmë për debug
