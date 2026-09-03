@@ -23,14 +23,16 @@ class SmsTemplate extends Model
 
     public static function getTemplate(string $type, ?string $locale = null): ?string
     {
-        $locale = $locale ?: app()->getLocale();
         $template = self::where('type', $type)->where('is_active', true)->first();
+        if (!$template) return null;
 
-        if (!$template || !isset($template->body[$locale])) {
-            // Fallback to first available language if current locale not found
-            return $template->body[array_key_first($template->body)] ?? null;
+        // Try provided locale, then default to 'sq', then whatever is available
+        $locale = $locale ?: 'sq';
+
+        if (isset($template->body[$locale])) {
+            return $template->body[$locale];
         }
 
-        return $template->body[$locale];
+        return $template->body['sq'] ?? ($template->body[array_key_first($template->body)] ?? null);
     }
 }

@@ -36,9 +36,8 @@ class SendBerberReminders extends Command
             if (str_starts_with($phone, '355')) { $phone = substr($phone, 3); }
             $phone = '+355' . substr(ltrim($phone, '0'), 0, 9);
 
-            $dt = Carbon::parse($booking->appointment_datetime);
-            $time = $dt->format('H:i');
-            $date = $dt->format('d/m/Y');
+            $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
+            $date = Carbon::parse($booking->appointment_datetime)->format('d/m/Y');
             $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
 
             // Use SMS Template
