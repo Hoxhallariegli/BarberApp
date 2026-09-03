@@ -40,7 +40,7 @@ class MobileDashboardController extends Controller
     public function barbers()
     {
         $barbers = Barber::with('schedules')->get()->map(function($barber) {
-            $barber->photo_url = $barber->photo ? url(Storage::url($barber->photo)) : null;
+            $barber->photo_url = $barber->photo ? url('uploads/' . $barber->photo) : null;
             return $barber;
         });
         return response()->json($barbers);
@@ -49,7 +49,7 @@ class MobileDashboardController extends Controller
     public function getBarber($id)
     {
         $barber = Barber::with('schedules')->findOrFail($id);
-        $barber->photo_url = $barber->photo ? url(Storage::url($barber->photo)) : null;
+        $barber->photo_url = $barber->photo ? url('uploads/' . $barber->photo) : null;
         return response()->json($barber);
     }
 
@@ -68,9 +68,11 @@ class MobileDashboardController extends Controller
 
         if ($request->has('schedules')) {
             foreach ($request->schedules as $schedData) {
+                // Ensure we don't pass system fields to updateOrCreate if they cause mass assignment issues,
+                // though we fixed the fillable property now.
                 $barber->schedules()->updateOrCreate(
                     ['day_of_week' => $schedData['day_of_week']],
-                    $schedData
+                    collect($schedData)->except(['id', 'created_at', 'updated_at', 'barber_id'])->toArray()
                 );
             }
         }
@@ -80,10 +82,17 @@ class MobileDashboardController extends Controller
 
     public function bookings()
     {
+        $today = Carbon::today();
+
         return response()->json(
             Booking::with(['customer', 'barber', 'service'])
-                ->orderBy('appointment_datetime', 'desc')
-                ->paginate(30)
+                ->orderByRaw("CASE
+                    WHEN status = 'pending' THEN 1
+                    WHEN status = 'completed' AND DATE(appointment_datetime) = '{$today->toDateString()}' THEN 2
+                    ELSE 3
+                END")
+                ->orderBy('appointment_datetime', 'asc')
+                ->paginate(50)
         );
     }
 
@@ -97,7 +106,14 @@ class MobileDashboardController extends Controller
             'status' => 'nullable|string',
         ]);
 
+        $customer = Customer::findOrFail($request->customer_id);
+
+        $validated['customer_name'] = $customer->name;
+        $validated['customer_phone'] = $customer->phone;
+        $validated['status'] = $validated['status'] ?? 'pending';
+
         $booking = Booking::create($validated);
+
         return response()->json(['success' => true, 'booking' => $booking->load(['customer', 'barber', 'service'])]);
     }
 
