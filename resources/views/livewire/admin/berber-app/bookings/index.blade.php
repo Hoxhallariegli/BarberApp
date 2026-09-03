@@ -26,6 +26,7 @@
         <option value="">{{ __('admin.All') }}</option>
         <option value="pending">{{ __('Pending') }}</option>
         <option value="confirmed">{{ __('Confirmed') }}</option>
+        <option value="completed">{{ __('Completed') }}</option>
         <option value="cancelled">{{ __('Cancelled') }}</option>
     </select>
 </div>

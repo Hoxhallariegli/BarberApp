@@ -28,6 +28,8 @@ class Booking extends Model
 
     public function service(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(\App\Models\BerberApp\Service::class, 'service_id'); }
 
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\BerberApp\Payment::class, 'booking_id'); }
+
     protected static function boot()
     {
         parent::boot();

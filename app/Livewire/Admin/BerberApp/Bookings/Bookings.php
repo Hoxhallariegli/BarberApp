@@ -49,6 +49,33 @@ class Bookings extends Component
 
     public function sortBy($field) { if (!in_array($field, Booking::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }
 
+    public function completeBooking($id)
+    {
+        abort_if_cannot('edit_bookings');
+        $booking = Booking::with('service')->find($id);
+
+        if (!$booking) {
+            $this->dispatch('toast', message: __('bookings.not_found'), type: 'error');
+            return;
+        }
+
+        if ($booking->status === 'completed') {
+            $this->dispatch('toast', message: __('Ky rezervim është përfunduar më parë.'), type: 'info');
+            return;
+        }
+
+        $booking->update(['status' => 'completed']);
+
+        // Create payment record
+        \App\Models\BerberApp\Payment::create([
+            'booking_id' => $booking->id,
+            'amount' => $booking->service->price ?? 0,
+            'status' => 'paid',
+        ]);
+
+        $this->dispatch('toast', message: __('Rezervimi u shënua si i përfunduar dhe pagesa u regjistrua.'), type: 'success');
+    }
+
     public function deleteBooking($id, DeleteBookingAction $action)
     {
         abort_if_cannot('delete_bookings');

@@ -117,5 +117,8 @@
     "Booking cancelled. Thank you for letting us know.": "Rezervimi u anullua. Faleminderit që na njoftuat.",
     "Pending": "Në pritje",
     "Confirmed": "I konfirmuar",
-    "Cancelled": "I anulluar"
+    "Completed": "Përfunduar",
+    "Cancelled": "I anulluar",
+    "Done": "Përfunduar",
+    "completed": "Përfunduar"
 }

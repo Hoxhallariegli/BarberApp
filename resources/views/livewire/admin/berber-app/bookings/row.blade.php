@@ -21,6 +21,7 @@
         @php
             $statusVariant = match($item->status) {
                 'confirmed' => 'success',
+                'completed' => 'blue',
                 'cancelled' => 'danger',
                 default => 'warning',
             };
@@ -31,6 +32,15 @@
     </td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
+            @if($item->status === 'confirmed')
+                <button
+                    wire:click="$parent.completeBooking('{{ $item->id }}')"
+                    wire:confirm="{{ __('A jeni i sigurt që dëshironi ta shënoni këtë rezervim si të përfunduar?') }}"
+                    class="!rounded-xl !bg-emerald-50 dark:!bg-emerald-900/30 !text-emerald-600 dark:!text-emerald-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none hover:scale-105 transition-transform"
+                >
+                    {{ __('Done') }}
+                </button>
+            @endif
             @can('edit_bookings')
                 <x-a href="{{ route('admin.bookings.edit', $item) }}" class="!rounded-xl !bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none">{{ __('admin.Edit') }}</x-a>
             @endcan
