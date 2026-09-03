@@ -22,7 +22,7 @@ class Bookings extends Component
     #[Url(history: true)] public $service_id = '';
     public bool $openFilter = false;
     public string $sortField = 'id';
-    public bool $sortAsc = true;
+    public bool $sortAsc = false;
 
     public function resetFilters() { $this->reset(['search', 'openFilter', 'customer_id', 'barber_id', 'service_id', ]); $this->resetPage(); }
 
