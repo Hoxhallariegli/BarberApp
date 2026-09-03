@@ -38,3 +38,19 @@ Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $re
     }
     return response()->json(['success' => false, 'message' => 'Job not found'], 404);
 });
+
+// Mobile Pro Dashboard Routes
+Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
+    Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
+    Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
+    Route::get('/barbers', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'barbers']);
+    Route::get('/bookings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'bookings']);
+    Route::get('/customers', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'customers']);
+    Route::get('/services', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'services']);
+    Route::get('/payments', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'payments']);
+    Route::get('/reminders', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'reminders']);
+    Route::get('/sms-templates', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsTemplates']);
+    Route::get('/sms-settings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsSettings']);
+});

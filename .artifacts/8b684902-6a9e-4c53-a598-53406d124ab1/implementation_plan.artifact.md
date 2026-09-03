@@ -1,37 +1,56 @@
-# Trip Console Fixes: Timer and Map Route
+# Plani i Implementimit: Mobile Pro Dashboard for Barbers
 
-This plan addresses the issues where the trip timer stays at `00:00:00` and the map route disappears after starting a trip.
+Ky projekt synon transformimin e APK-së ekzistuese "Station Gateway" në një aplikacion menaxhimi "Pro" që lejon kontrollin e plotë të biznesit nga telefoni (Dashboard, Barbers, Bookings, etj.).
 
 ## User Review Required
 
 > [!IMPORTANT]
-> I will be updating the `Trip` model and the `DriverConsole` Livewire component/view. These changes focus on data precision and timezone synchronization.
-> I have already updated the migration file for coordinate precision, but if you haven't run `php artisan migrate:fresh` (which deletes data), I can provide a new migration to update the columns safely.
+> Aplikacioni do të kërkojë Login me Email dhe Password (si në web).
+> Do të përdorim Laravel Sanctum për sigurinë e API-ve.
+> Gateway SMS do të mbetet funksional në background, por do të jetë i lidhur me llogarinë e përdoruesit.
 
 ## Proposed Changes
 
-### [Database & Models]
+### 1. Laravel Backend (API)
 
-#### [MODIFY] [Trip.php](file:///C:/laragon/www/fleettrack/app/Models/Trip.php)
-- Add float casts for `start_lat`, `start_lng`, `end_lat`, and `end_lng` to ensure high precision when handling coordinates in PHP.
+#### [MODIFY] [api.php](file:///C:/laragon/www/Barbers/routes/api.php)
+Shtimi i rrugëve të reja për:
+- `POST /login`: Autentifikimi i përdoruesit.
+- `GET /mobile/dashboard`: Përmbledhje e të dhënave (statistikat).
+- `GET /mobile/barbers`: Lista e berberëve.
+- `GET /mobile/bookings`: Lista e rezervimeve.
+- `GET /mobile/customers`: Lista e klientëve.
+- `GET /mobile/services`: Lista e shërbimeve.
+- `GET /mobile/payments`: Lista e pagesave.
+- `GET /mobile/reminders`: Kujtesat.
+- `GET /mobile/sms-settings`: Cilësimet e SMS.
+- `GET /mobile/sms-templates`: Modelet e SMS.
 
----
+#### [NEW] [MobileDashboardController.php](file:///C:/laragon/www/Barbers/app/Http/Controllers/Api/Mobile/MobileDashboardController.php)
+Menaxhimi i kërkesave nga mobile.
 
-### [Livewire Components]
+### 2. Flutter Mobile App (Mobile Gateway)
 
-#### [MODIFY] [DriverConsole.php](file:///C:/laragon/www/fleettrack/app/Livewire/Admin/DriverConsole/DriverConsole.php)
-- Ensure coordinates are correctly persisted and passed.
-- (Optional) Improve the `trip-started` event to avoid a full page reload if possible, but first we will fix the current reload-based logic.
+#### [MODIFY] [pubspec.yaml](file:///C:/laragon/www/Barbers/mobile-gateway/pubspec.yaml)
+Shtimi i paketave të nevojshme:
+- `http`: Për kërkesat API.
+- `shared_preferences`: Për ruajtjen e token-it.
+- `flutter_secure_storage`: Për siguri më të lartë të token-it (opsionale).
+- `intl`: Për formatimin e datave.
 
-#### [MODIFY] [driver-console.blade.php](file:///C:/laragon/www/fleettrack/resources/views/livewire/admin/driver-console/driver-console.blade.php)
-- Update `startProTimer` to use ISO 8601 strings for consistent timezone handling between server and client.
-- Fix the `dayjs` duration calculation to handle timezone offsets correctly.
-- Ensure the map correctly initializes the route and markers from the `activeTrip` data after a page reload.
-- Add error handling for cases where coordinates might be missing or invalid.
+#### [MODIFY] [lib/main.dart](file:///C:/laragon/www/Barbers/mobile-gateway/lib/main.dart)
+Refaktori i `main.dart` për të përfshirë:
+- `LoginScreen`: Faqja e hyrjes.
+- `MainScreen`: Me `BottomNavigationBar` dhe `Drawer`.
+- `DashboardPage`: Me Grid View (taps).
+- `ListPage`: Një komponent gjenerik për listat (Barbers, Bookings, etj.).
 
 ## Verification Plan
 
+### Automated Tests
+- Testimi i API endpoints me Postman/Insomnia.
+- Verifikimi i Login dhe ruajtjes së Token-it në Flutter.
+
 ### Manual Verification
-1. Start a trip and verify the timer begins counting up immediately.
-2. Verify the map shows the start and end markers and the orange route line after the trip starts.
-3. Check that the current location (blue pulse) is tracked relative to the route.
+- Navigimi nëpër menu dhe kontrolli i të dhënave.
+- Testimi i dërgimit të SMS në background ndërkohë që përdoret dashboard.
