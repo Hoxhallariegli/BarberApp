@@ -17,10 +17,19 @@ class SmsTemplate extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'body' => 'array',
     ];
 
-    public static function getTemplate(string $type): ?string
+    public static function getTemplate(string $type, ?string $locale = null): ?string
     {
-        return self::where('type', $type)->where('is_active', true)->first()?->body;
+        $locale = $locale ?: app()->getLocale();
+        $template = self::where('type', $type)->where('is_active', true)->first();
+
+        if (!$template || !isset($template->body[$locale])) {
+            // Fallback to first available language if current locale not found
+            return $template->body[array_key_first($template->body)] ?? null;
+        }
+
+        return $template->body[$locale];
     }
 }

@@ -21,6 +21,10 @@ class BarberSchedule extends Model
         'is_working'
     ];
 
+    protected $casts = [
+        'is_working' => 'boolean',
+    ];
+
     public function barber()
     {
         return $this->belongsTo(Barber::class, 'barber_id');

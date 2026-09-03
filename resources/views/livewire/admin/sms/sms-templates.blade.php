@@ -26,7 +26,8 @@
                 <thead class="bg-gray-50/50 dark:bg-gray-900/50 text-[10px] font-black uppercase text-gray-400 tracking-widest">
                     <tr>
                         <th class="px-6 py-4">{{ __('Template Type') }}</th>
-                        <th class="px-6 py-4">{{ __('Message Body') }}</th>
+                        <th class="px-6 py-4">{{ __('Message Body (SQ)') }}</th>
+                        <th class="px-6 py-4">{{ __('Message Body (EN)') }}</th>
                         <th class="px-6 py-4 text-center">{{ __('Status') }}</th>
                         <th class="px-6 py-4 text-right">{{ __('Actions') }}</th>
                     </tr>
@@ -39,8 +40,11 @@
                                     {{ $template->type }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 max-w-xs lg:max-w-md">
-                                <p class="text-gray-600 dark:text-gray-400 text-xs">{{ $template->body }}</p>
+                            <td class="px-6 py-4 max-w-xs">
+                                <p class="text-gray-600 dark:text-gray-400 text-xs truncate">{{ $template->body['sq'] ?? '' }}</p>
+                            </td>
+                            <td class="px-6 py-4 max-w-xs">
+                                <p class="text-gray-600 dark:text-gray-400 text-xs truncate">{{ $template->body['en'] ?? '' }}</p>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <x-badge :variant="$template->is_active ? 'success' : 'danger'">
@@ -58,7 +62,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-6 py-10 text-center text-gray-400 text-xs font-bold uppercase tracking-widest italic">
+                            <td colspan="5" class="px-6 py-10 text-center text-gray-400 text-xs font-bold uppercase tracking-widest italic">
                                 {{ __('No templates found.') }}
                             </td>
                         </tr>
@@ -84,20 +88,43 @@
                     </button>
                 </header>
 
-                <main class="p-8 space-y-6">
+                <main class="p-8 space-y-6" x-data="{ activeTab: 'sq' }">
                     <x-form.group label="Template Type" for="type">
-                        <x-form.input wire:model="type" id="type" placeholder="e.g. reminder, promotional" />
-                        <small class="text-gray-400 text-[9px] font-black uppercase tracking-widest italic">{{ __('Used to identify the template in the system.') }}</small>
+                        <x-form.input wire:model="type" id="type" placeholder="e.g. booking_confirmation, reminder" />
+                        <small class="text-gray-400 text-[9px] font-black uppercase tracking-widest italic">{{ __('Use "booking_confirmation" for new bookings and "reminder" for reminders.') }}</small>
                     </x-form.group>
 
-                    <x-form.group label="Message Body" for="body">
-                        <x-form.textarea wire:model="body" id="body" rows="6" placeholder="Type your message template..." />
+                    <div class="space-y-4">
+                        <div class="flex gap-2 border-b border-gray-100 dark:border-gray-700">
+                            <button @click="activeTab = 'sq'" :class="activeTab === 'sq' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors">Albanian (SQ)</button>
+                            <button @click="activeTab = 'en'" :class="activeTab === 'en' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors">English (EN)</button>
+                        </div>
+
+                        <div x-show="activeTab === 'sq'" class="animate-in fade-in slide-in-from-left-2 duration-200">
+                            <x-form.group label="Message Body (SQ)" for="body_sq">
+                                <x-form.textarea wire:model="body.sq" id="body_sq" rows="4" placeholder="Teksti në shqip..." />
+                            </x-form.group>
+                        </div>
+
+                        <div x-show="activeTab === 'en'" class="animate-in fade-in slide-in-from-right-2 duration-200">
+                            <x-form.group label="Message Body (EN)" for="body_en">
+                                <x-form.textarea wire:model="body.en" id="body_en" rows="4" placeholder="Text in English..." />
+                            </x-form.group>
+                        </div>
+
                         <div class="mt-2 flex flex-wrap gap-2">
-                            @foreach(['{name}', '{time}', '{link_confirm}', '{link_cancel}'] as $tag)
-                                <button type="button" @click="$wire.body += '{{ $tag }}'" class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-[8px] font-black uppercase text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                            @foreach(['{name}', '{time}', '{link_confirm}'] as $tag)
+                                <button type="button" @click="if(activeTab === 'sq') $wire.set('body.sq', $wire.get('body.sq') + '{{ $tag }}'); else $wire.set('body.en', $wire.get('body.en') + '{{ $tag }}')" class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-[8px] font-black uppercase text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                                     {{ $tag }}
                                 </button>
                             @endforeach
+                        </div>
+                    </div>
+
+                    <x-form.group label="Active Status">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" wire:model="is_active" id="is_active" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <label for="is_active" class="text-xs text-gray-600 dark:text-gray-400">{{ __('Active') }}</label>
                         </div>
                     </x-form.group>
                 </main>

@@ -27,21 +27,31 @@ class ConfirmBookingController extends Controller
     public function confirm($token)
     {
         $booking = Booking::where('token', $token)->with(['barber'])->firstOrFail();
+
+        if ($booking->status !== 'pending') {
+            return back()->with('info', __('This booking has already been processed.'));
+        }
+
         $booking->update(['status' => 'confirmed']);
 
         $this->notifyInterests($booking, 'konfirmuar');
 
-        return back()->with('success', 'Rezervimi u konfirmua me sukses! Ju presim.');
+        return back()->with('success', __('Booking confirmed successfully! We are waiting for you.'));
     }
 
     public function cancel($token)
     {
         $booking = Booking::where('token', $token)->with(['barber'])->firstOrFail();
+
+        if ($booking->status !== 'pending') {
+            return back()->with('info', __('This booking has already been processed.'));
+        }
+
         $booking->update(['status' => 'cancelled']);
 
         $this->notifyInterests($booking, 'anulluar');
 
-        return back()->with('info', 'Rezervimi u anullua. Faleminderit që na njoftuat.');
+        return back()->with('info', __('Booking cancelled. Thank you for letting us know.'));
     }
 
     protected function notifyInterests(Booking $booking, string $statusLabel)

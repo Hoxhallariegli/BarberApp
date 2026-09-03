@@ -39,8 +39,17 @@ class SendBerberReminders extends Command
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
             $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
 
-            // Mesazh pak më i shkurtër që të mos bllokohet nga rrjeti
-            $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time}. Konfirmoni ketu: {$confirmUrl}";
+            // Use SMS Template
+            $template = \App\Models\SmsTemplate::getTemplate('reminder');
+            if ($template) {
+                $body = str_replace(
+                    ['{name}', '{time}', '{link_confirm}'],
+                    [$customerName, $time, $confirmUrl],
+                    $template
+                );
+            } else {
+                $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time}. Konfirmoni ketu: {$confirmUrl}";
+            }
 
             $extraData = [
                 'show_notification' => 'true',

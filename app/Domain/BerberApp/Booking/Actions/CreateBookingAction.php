@@ -29,8 +29,17 @@ class CreateBookingAction
             $smsService = app(\App\Services\SmsService::class);
             $time = Carbon::parse($item->appointment_datetime)->format('H:i');
 
-            // MESAZH SUPER I SHKURTER PER TEST
-            $message = "STATION: Rezervimi juaj u krye me sukses per oren {$time}.";
+            // Use SMS Template
+            $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation');
+            if ($template) {
+                $message = str_replace(
+                    ['{name}', '{time}'],
+                    [$item->customer_name ?: 'Klient', $time],
+                    $template
+                );
+            } else {
+                $message = "STATION: Rezervimi juaj u krye me sukses per oren {$time}.";
+            }
 
             $extraData = [
                 'show_notification' => 'true',

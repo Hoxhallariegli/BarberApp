@@ -14,12 +14,16 @@ class SmsTemplates extends Component
     public ?int $templateId = null;
 
     public string $type = '';
-    public string $body = '';
+    public array $body = [
+        'sq' => '',
+        'en' => '',
+    ];
     public bool $is_active = true;
 
     protected $rules = [
         'type' => 'required|string|max:255',
-        'body' => 'required|string',
+        'body.sq' => 'required|string',
+        'body.en' => 'required|string',
         'is_active' => 'boolean',
     ];
 
@@ -32,7 +36,9 @@ class SmsTemplates extends Component
 
     public function create(): void
     {
-        $this->reset(['type', 'body', 'is_active', 'templateId']);
+        $this->reset(['type', 'templateId']);
+        $this->body = ['sq' => '', 'en' => ''];
+        $this->is_active = true;
         $this->showingModal = true;
     }
 
@@ -41,7 +47,7 @@ class SmsTemplates extends Component
         $template = SmsTemplate::findOrFail($id);
         $this->templateId = $id;
         $this->type = $template->type;
-        $this->body = $template->body;
+        $this->body = array_merge(['sq' => '', 'en' => ''], (array) $template->body);
         $this->is_active = $template->is_active;
         $this->showingModal = true;
     }
