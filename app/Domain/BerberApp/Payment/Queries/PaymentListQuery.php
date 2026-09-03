@@ -9,7 +9,7 @@ class PaymentListQuery
 {
     public function handle(array $params = [], string $sortField = 'id', string $sortAsc = 'asc'): Builder
     {
-        $query = Payment::query()->with(['booking']);
+        $query = Payment::query()->with(['booking.customer']);
         if (isset($params['search']) && $params['search']) {
             $query->where(function($query) use ($params) {
                 $query->where('id', 'like', '%' . $params['search'] . '%');

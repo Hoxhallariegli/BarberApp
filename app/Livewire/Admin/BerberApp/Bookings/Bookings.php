@@ -25,6 +25,12 @@ class Bookings extends Component
     public string $sortField = 'id';
     public bool $sortAsc = false;
 
+    // Properties for "Done" modal
+    public bool $showingDoneModal = false;
+    public $selectedBookingId = null;
+    public $paymentAmount = 0;
+    public $selectedCustomerName = '';
+
     public function resetFilters() { $this->reset(['search', 'openFilter', 'customer_id', 'barber_id', 'service_id', 'status']); $this->resetPage(); }
 
     public function render()
@@ -49,31 +55,43 @@ class Bookings extends Component
 
     public function sortBy($field) { if (!in_array($field, Booking::sortable(), true)) return; if ($this->sortField === $field) { $this->sortAsc = ! $this->sortAsc; } $this->sortField = $field; }
 
-    public function completeBooking($id)
+    public function openDoneModal($id)
+    {
+        $booking = Booking::with('service')->find($id);
+        if (!$booking) return;
+
+        $this->selectedBookingId = $id;
+        $this->paymentAmount = $booking->service->price ?? 0;
+        $this->selectedCustomerName = $booking->customer_name ?: ($booking->customer?->name ?? 'Klient');
+        $this->showingDoneModal = true;
+    }
+
+    public function completeBooking()
     {
         abort_if_cannot('edit_bookings');
-        $booking = Booking::with('service')->find($id);
+
+        if (!$this->selectedBookingId) return;
+
+        $booking = Booking::find($this->selectedBookingId);
 
         if (!$booking) {
             $this->dispatch('toast', message: __('bookings.not_found'), type: 'error');
             return;
         }
 
-        if ($booking->status === 'completed') {
-            $this->dispatch('toast', message: __('Ky rezervim është përfunduar më parë.'), type: 'info');
-            return;
-        }
-
         $booking->update(['status' => 'completed']);
 
-        // Create payment record
+        // Create payment record with the confirmed amount
         \App\Models\BerberApp\Payment::create([
             'booking_id' => $booking->id,
-            'amount' => $booking->service->price ?? 0,
+            'amount' => $this->paymentAmount,
             'status' => 'paid',
         ]);
 
-        $this->dispatch('toast', message: __('Rezervimi u shënua si i përfunduar dhe pagesa u regjistrua.'), type: 'success');
+        $this->showingDoneModal = false;
+        $this->reset(['selectedBookingId', 'paymentAmount', 'selectedCustomerName']);
+
+        $this->dispatch('toast', message: __('Rezervimi u përfundua dhe pagesa u regjistrua.'), type: 'success');
     }
 
     public function deleteBooking($id, DeleteBookingAction $action)

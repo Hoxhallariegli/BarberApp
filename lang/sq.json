@@ -120,5 +120,11 @@
     "Completed": "Përfunduar",
     "Cancelled": "I anulluar",
     "Done": "Përfunduar",
-    "completed": "Përfunduar"
+    "completed": "Përfunduar",
+    "Përfundo Rezervimin": "Përfundo Rezervimin",
+    "Shuma e Pagesës": "Shuma e Pagesës",
+    "Ju lutem konfirmoni shumën totale që keni arkëtuar nga klienti.": "Ju lutem konfirmoni shumën totale që keni arkëtuar nga klienti.",
+    "Konfirmo dhe Ruaj Pagesën": "Konfirmo dhe Ruaj Pagesën",
+    "Anullo": "Anullo",
+    "Rezervimi u përfundua dhe pagesa u regjistrua.": "Rezervimi u përfundua dhe pagesa u regjistrua."
 }

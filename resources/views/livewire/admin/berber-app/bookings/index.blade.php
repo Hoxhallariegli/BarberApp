@@ -49,4 +49,50 @@
         </div>
         <div class="p-4 border-t border-gray-50 dark:border-gray-700/50">{{ $items->links() }}</div>
     </div>
+
+    {{-- Done Modal --}}
+    @if($showingDoneModal)
+        <div class="fixed z-[9999] inset-0 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in duration-200" role="dialog">
+                <header class="p-8 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-black uppercase italic text-gray-900 dark:text-white">
+                            {{ __('Përfundo Rezervimin') }}
+                        </h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $selectedCustomerName }}</p>
+                    </div>
+                    <button wire:click="$set('showingDoneModal', false)" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <x-heroicon-o-x-mark class="w-6 h-6" />
+                    </button>
+                </header>
+
+                <main class="p-8 space-y-6">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">
+                            {{ __('Shuma e Pagesës') }}
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">Lek</span>
+                            <input type="number"
+                                wire:model="paymentAmount"
+                                class="w-full pl-12 pr-4 py-4 text-lg font-black bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 dark:text-white outline-none"
+                            >
+                        </div>
+                        <p class="text-[9px] font-bold text-gray-400 italic mt-2 uppercase tracking-tighter">
+                            {{ __('Ju lutem konfirmoni shumën totale që keni arkëtuar nga klienti.') }}
+                        </p>
+                    </div>
+                </main>
+
+                <footer class="p-8 bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
+                    <x-button wire:click="completeBooking" variant="blue" class="w-full !py-4 !rounded-2xl !text-[11px] !font-black !uppercase">
+                        {{ __('Konfirmo dhe Ruaj Pagesën') }}
+                    </x-button>
+                    <button wire:click="$set('showingDoneModal', false)" class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
+                        {{ __('Anullo') }}
+                    </button>
+                </footer>
+            </div>
+        </div>
+    @endif
 </div>

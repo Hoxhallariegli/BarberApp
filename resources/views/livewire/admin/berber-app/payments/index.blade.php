@@ -27,7 +27,9 @@
 
         <div class="overflow-x-auto border-t border-gray-100 dark:border-gray-700">
             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                <thead class="bg-gray-100/50 dark:bg-gray-700/50"><tr><x-table.th name="id" :label="__('payments.ID')" :$sortField :$sortAsc :sortable="true" /><x-table.th name="booking_id" :label="__('payments.Booking Id')" :$sortField :$sortAsc :sortable="in_array('booking_id', $sortableFields)" />
+                <thead class="bg-gray-100/50 dark:bg-gray-700/50"><tr><x-table.th name="id" :label="__('payments.ID')" :$sortField :$sortAsc :sortable="true" />
+<th class="px-6 py-4 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('customers.Customer') }}</th>
+<x-table.th name="booking_id" :label="__('payments.Booking Id')" :$sortField :$sortAsc :sortable="in_array('booking_id', $sortableFields)" />
 <x-table.th name="amount" :label="__('payments.Amount')" :$sortField :$sortAsc :sortable="in_array('amount', $sortableFields)" />
 <x-table.th name="status" :label="__('payments.Status')" :$sortField :$sortAsc :sortable="in_array('status', $sortableFields)" /><th class="px-6 py-4 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('payments.Action') }}</th></tr></thead>
                 <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">@forelse($items as $item) <livewire:admin.berber-app.payments.row :$item :key="$item->id" /> @empty <tr><td colspan="100" class="px-6 py-10 text-center text-sm text-gray-400">{{ __('payments.No records found.') }}</td></tr> @endforelse</tbody>
