@@ -42,10 +42,10 @@ class BarberScheduleConfig extends Component
             $this->schedules[$dayNum] = [
                 'day_name' => $dayName,
                 'is_working' => $schedule ? (bool)$schedule->is_working : ($dayNum != 0),
-                'start_time' => $schedule ? $schedule->start_time : '09:00',
-                'end_time' => $schedule ? $schedule->end_time : '18:00',
-                'break_start_time' => $schedule ? $schedule->break_start_time : '13:00',
-                'break_end_time' => $schedule ? $schedule->break_end_time : '14:00',
+                'start_time' => $schedule ? ($schedule->start_time ?? '') : '09:00',
+                'end_time' => $schedule ? ($schedule->end_time ?? '') : '18:00',
+                'break_start_time' => $schedule ? ($schedule->break_start_time ?? '') : '13:00',
+                'break_end_time' => $schedule ? ($schedule->break_end_time ?? '') : '14:00',
             ];
         }
     }

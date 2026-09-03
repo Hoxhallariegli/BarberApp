@@ -110,6 +110,7 @@ class Edit extends Component
             'barber_id' => $this->barber_id,
             'service_id' => $this->service_id,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
+            'locale' => $this->item->locale, // Keep original locale or update to current? Let's keep original
         ]);
 
         $action->execute($this->item, $dto);

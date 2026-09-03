@@ -17,6 +17,18 @@
         {{ $item->appointment_datetime?->format('d/m/Y') }}
         <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest">{{ $item->appointment_datetime?->format('H:i') }}</div>
     </td>
+    <td class="px-6 py-5">
+        @php
+            $statusVariant = match($item->status) {
+                'confirmed' => 'success',
+                'cancelled' => 'danger',
+                default => 'warning',
+            };
+        @endphp
+        <x-badge :variant="$statusVariant">
+            {{ __($item->status ?? 'pending') }}
+        </x-badge>
+    </td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
             @can('edit_bookings')

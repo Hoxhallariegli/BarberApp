@@ -30,8 +30,8 @@ class CreateBookingAction
             $time = Carbon::parse($item->appointment_datetime)->format('H:i');
             $date = Carbon::parse($item->appointment_datetime)->format('d/m');
 
-            // Use SMS Template
-            $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation');
+            // Use SMS Template with booking locale
+            $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation', $item->locale);
             if ($template) {
                 $message = str_replace(
                     ['{name}', '{time}', '{date}'],

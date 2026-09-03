@@ -19,6 +19,7 @@ class BookingListQuery
         if (isset($params['customer_id']) && $params['customer_id']) $query->where('customer_id', $params['customer_id']);
         if (isset($params['barber_id']) && $params['barber_id']) $query->where('barber_id', $params['barber_id']);
         if (isset($params['service_id']) && $params['service_id']) $query->where('service_id', $params['service_id']);
+        if (isset($params['status']) && $params['status']) $query->where('status', $params['status']);
         $sortField = in_array($sortField, Booking::sortable(), true) ? $sortField : 'id';
         $sortAsc = in_array(strtolower((string) $sortAsc), ['asc', 'desc'], true) ? $sortAsc : 'asc';
         return $query->orderBy($sortField, $sortAsc);

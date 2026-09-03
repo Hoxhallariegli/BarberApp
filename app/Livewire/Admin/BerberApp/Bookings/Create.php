@@ -93,6 +93,7 @@ class Create extends Component
             'service_id' => $this->service_id,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
             'status' => 'confirmed', // Admin bookings are confirmed by default
+            'locale' => app()->getLocale(),
             'reminder_enabled' => true,
         ]);
 

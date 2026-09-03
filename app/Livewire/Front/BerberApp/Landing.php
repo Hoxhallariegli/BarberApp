@@ -111,6 +111,7 @@ class Landing extends Component
             'customer_phone' => $phone,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
             'status' => 'pending',
+            'locale' => app()->getLocale(),
             'reminder_enabled' => $this->allowNotifications,
             'reminder_minutes' => 30,
             'fcm_token' => $this->fcmToken,

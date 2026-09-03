@@ -103,7 +103,6 @@
     "Your appointment for": "Takimi juaj për në orën",
     "is ready.": "është gati.",
     "Back to home": "Kthehu te faqja",
-    "Cancelled": "U anullua",
     "Booking deleted successfully.": "Rezervimi u fshi me sukses.",
     "See you next time!": "Mirupafshim herën tjetër!",
     "Appointment Verification": "Verifikim Takimi",
@@ -115,5 +114,8 @@
     "Processing...": "Duke u procesuar...",
     "This booking has already been processed.": "Ky rezervim është procesuar tashmë.",
     "Booking confirmed successfully! We are waiting for you.": "Rezervimi u konfirmua me sukses! Ju presim.",
-    "Booking cancelled. Thank you for letting us know.": "Rezervimi u anullua. Faleminderit që na njoftuat."
+    "Booking cancelled. Thank you for letting us know.": "Rezervimi u anullua. Faleminderit që na njoftuat.",
+    "Pending": "Në pritje",
+    "Confirmed": "I konfirmuar",
+    "Cancelled": "I anulluar"
 }

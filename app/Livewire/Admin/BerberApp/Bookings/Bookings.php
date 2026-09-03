@@ -20,19 +20,23 @@ class Bookings extends Component
     #[Url(history: true)] public $customer_id = '';
     #[Url(history: true)] public $barber_id = '';
     #[Url(history: true)] public $service_id = '';
+    #[Url(history: true)] public $status = '';
     public bool $openFilter = false;
     public string $sortField = 'id';
     public bool $sortAsc = false;
 
-    public function resetFilters() { $this->reset(['search', 'openFilter', 'customer_id', 'barber_id', 'service_id', ]); $this->resetPage(); }
+    public function resetFilters() { $this->reset(['search', 'openFilter', 'customer_id', 'barber_id', 'service_id', 'status']); $this->resetPage(); }
 
     public function render()
     {
         abort_if_cannot('view_bookings');
-        $query = (new BookingListQuery())->handle(['search' => $this->search,             'customer_id' => $this->customer_id,
+        $query = (new BookingListQuery())->handle([
+            'search' => $this->search,
+            'customer_id' => $this->customer_id,
             'barber_id' => $this->barber_id,
             'service_id' => $this->service_id,
-], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
+            'status' => $this->status,
+        ], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
 
         return view('livewire.admin.berber-app.bookings.index', [
             'items' => $query->with(['customer', 'barber', 'service'])->paginate($this->paginate),

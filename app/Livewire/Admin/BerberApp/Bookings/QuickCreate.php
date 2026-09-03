@@ -97,6 +97,7 @@ class QuickCreate extends Component
             'service_id' => $this->service_id,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
             'status' => 'confirmed',
+            'locale' => app()->getLocale(),
             'reminder_enabled' => true,
         ]);
 

@@ -42,8 +42,8 @@ class SendBerberReminders extends Command
             // Shorten URL by removing https://
             $shortUrl = str_replace(['https://', 'http://'], '', $confirmUrl);
 
-            // Use SMS Template
-            $template = \App\Models\SmsTemplate::getTemplate('reminder');
+            // Use SMS Template with booking locale
+            $template = \App\Models\SmsTemplate::getTemplate('reminder', $booking->locale);
             if ($template) {
                 $body = str_replace(
                     ['{name}', '{time}', '{date}', '{link_confirm}'],

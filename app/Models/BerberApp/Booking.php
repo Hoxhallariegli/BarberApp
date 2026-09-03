@@ -9,7 +9,7 @@ class Booking extends Model
 {
     use HasFactory;
     protected $table = 'ba_bookings';
-    protected $fillable = ['token', 'customer_id', 'barber_id', 'service_id', 'appointment_datetime', 'customer_name', 'customer_phone', 'status', 'reminder_enabled', 'reminder_minutes', 'fcm_token'];
+    protected $fillable = ['token', 'customer_id', 'barber_id', 'service_id', 'appointment_datetime', 'customer_name', 'customer_phone', 'status', 'locale', 'reminder_enabled', 'reminder_minutes', 'fcm_token'];
 
     protected function casts(): array { return [
             'appointment_datetime' => 'datetime',

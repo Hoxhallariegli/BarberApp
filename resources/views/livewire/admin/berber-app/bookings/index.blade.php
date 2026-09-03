@@ -13,7 +13,7 @@
             </div>
 
             <div x-show="openFilter" x-cloak class="mt-6 p-6 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     <div>
                         <label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('bookings.Search') }}</label>
                         <input name="search" wire:model.live.debounce.300ms="search" type="text" :placeholder="__('bookings.Search') . '...'" class="w-full p-3 text-sm font-bold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 dark:text-white">
@@ -21,6 +21,14 @@
                     <div><label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('bookings.Customer Id') }}</label><x-form.dropdown-search name="customer_id" wire:model.live="customer_id" label="none" :data="$customers" :placeholder="__('bookings.Filters') . ' ' . __('bookings.Customer Id')" /></div>
 <div><label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('bookings.Barber Id') }}</label><x-form.dropdown-search name="barber_id" wire:model.live="barber_id" label="none" :data="$barbers" :placeholder="__('bookings.Filters') . ' ' . __('bookings.Barber Id')" /></div>
 <div><label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('bookings.Service Id') }}</label><x-form.dropdown-search name="service_id" wire:model.live="service_id" label="none" :data="$services" :placeholder="__('bookings.Filters') . ' ' . __('bookings.Service Id')" /></div>
+<div><label class="block mb-1.5 text-[10px] font-bold uppercase tracking-widest ml-1 text-gray-900 dark:text-gray-100">{{ __('bookings.Status') }}</label>
+    <select wire:model.live="status" class="w-full p-3 text-sm font-bold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 dark:text-white">
+        <option value="">{{ __('admin.All') }}</option>
+        <option value="pending">{{ __('Pending') }}</option>
+        <option value="confirmed">{{ __('Confirmed') }}</option>
+        <option value="cancelled">{{ __('Cancelled') }}</option>
+    </select>
+</div>
                 </div>
             </div>
         </div>
@@ -32,7 +40,9 @@
                 <thead class="bg-gray-100/50 dark:bg-gray-700/50"><tr><x-table.th name="id" :label="__('bookings.ID')" :$sortField :$sortAsc :sortable="true" /><x-table.th name="customer_id" :label="__('bookings.Customer Id')" :$sortField :$sortAsc :sortable="in_array('customer_id', $sortableFields)" />
 <x-table.th name="barber_id" :label="__('bookings.Barber Id')" :$sortField :$sortAsc :sortable="in_array('barber_id', $sortableFields)" />
 <x-table.th name="service_id" :label="__('bookings.Service Id')" :$sortField :$sortAsc :sortable="in_array('service_id', $sortableFields)" />
-<x-table.th name="appointment_datetime" :label="__('bookings.Appointment Datetime')" :$sortField :$sortAsc :sortable="in_array('appointment_datetime', $sortableFields)" /><th class="px-6 py-4 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('bookings.Action') }}</th></tr></thead>
+<x-table.th name="appointment_datetime" :label="__('bookings.Appointment Datetime')" :$sortField :$sortAsc :sortable="in_array('appointment_datetime', $sortableFields)" />
+<th class="px-6 py-4 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('bookings.Status') }}</th>
+<th class="px-6 py-4 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('bookings.Action') }}</th></tr></thead>
                 <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">@forelse($items as $item) <livewire:admin.berber-app.bookings.row :$item :key="$item->id" /> @empty <tr><td colspan="100" class="px-6 py-10 text-center text-sm text-gray-400">{{ __('bookings.No records found.') }}</td></tr> @endforelse</tbody>
             </table>
         </div>
