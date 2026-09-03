@@ -16,6 +16,9 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Services\AvailabilityService;
+use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
+use App\Domain\BerberApp\Booking\Actions\CreateBookingAction;
 
 class MobileDashboardController extends Controller
 {
@@ -46,11 +49,17 @@ class MobileDashboardController extends Controller
         return response()->json($barbers);
     }
 
-    public function getBarber($id)
+    public function storeBarber(Request $request)
     {
-        $barber = Barber::with('schedules')->findOrFail($id);
-        $barber->photo_url = $barber->photo ? url('uploads/' . $barber->photo) : null;
-        return response()->json($barber);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'specialization' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'commission_rate' => 'nullable|numeric',
+        ]);
+
+        $barber = Barber::create($validated);
+        return response()->json(['success' => true, 'barber' => $barber]);
     }
 
     public function updateBarber(Request $request, $id)
@@ -68,8 +77,6 @@ class MobileDashboardController extends Controller
 
         if ($request->has('schedules')) {
             foreach ($request->schedules as $schedData) {
-                // Ensure we don't pass system fields to updateOrCreate if they cause mass assignment issues,
-                // though we fixed the fillable property now.
                 $barber->schedules()->updateOrCreate(
                     ['day_of_week' => $schedData['day_of_week']],
                     collect($schedData)->except(['id', 'created_at', 'updated_at', 'barber_id'])->toArray()
@@ -96,23 +103,52 @@ class MobileDashboardController extends Controller
         );
     }
 
+    public function getAvailableSlots(Request $request)
+    {
+        $request->validate([
+            'barber_id' => 'required|exists:ba_barbers,id',
+            'service_id' => 'required|exists:ba_services,id',
+            'date' => 'required|date',
+        ]);
+
+        $barber = Barber::findOrFail($request->barber_id);
+        $service = Service::findOrFail($request->service_id);
+
+        $availabilityService = app(AvailabilityService::class);
+        $slots = $availabilityService->getAvailableSlots(
+            $barber,
+            Carbon::parse($request->date),
+            $service->duration_minutes ?: 30
+        );
+
+        return response()->json($slots);
+    }
+
     public function storeBooking(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'customer_id' => 'required|exists:ba_customers,id',
             'barber_id' => 'required|exists:ba_barbers,id',
             'service_id' => 'required|exists:ba_services,id',
             'appointment_datetime' => 'required|date',
-            'status' => 'nullable|string',
         ]);
 
         $customer = Customer::findOrFail($request->customer_id);
 
-        $validated['customer_name'] = $customer->name;
-        $validated['customer_phone'] = $customer->phone;
-        $validated['status'] = $validated['status'] ?? 'pending';
+        $dto = BookingDTO::fromArray([
+            'customer_id' => $customer->id,
+            'barber_id' => $request->barber_id,
+            'service_id' => $request->service_id,
+            'appointment_datetime' => Carbon::parse($request->appointment_datetime)->toDateTimeString(),
+            'status' => 'pending',
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'locale' => 'sq',
+            'reminder_enabled' => true,
+        ]);
 
-        $booking = Booking::create($validated);
+        $action = app(CreateBookingAction::class);
+        $booking = $action->execute($dto);
 
         return response()->json(['success' => true, 'booking' => $booking->load(['customer', 'barber', 'service'])]);
     }
@@ -131,37 +167,21 @@ class MobileDashboardController extends Controller
         return response()->json(['success' => true, 'booking' => $booking->load(['customer', 'barber', 'service'])]);
     }
 
-    public function completePayment(Request $request, $bookingId)
-    {
-        Log::info("Mobile Payment Request for Booking: $bookingId", $request->all());
-
-        $request->validate([
-            'amount' => 'required|numeric',
-        ]);
-
-        try {
-            $booking = Booking::findOrFail($bookingId);
-
-            $payment = Payment::create([
-                'booking_id' => $booking->id,
-                'amount' => $request->amount,
-                'status' => 'completed',
-            ]);
-
-            $booking->update(['status' => 'completed']);
-
-            Log::info("Payment Successful for Booking: $bookingId");
-
-            return response()->json(['success' => true, 'payment' => $payment]);
-        } catch (\Exception $e) {
-            Log::error("Payment Error: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-        }
-    }
-
     public function customers()
     {
-        return response()->json(Customer::latest()->paginate(20));
+        return response()->json(Customer::latest()->paginate(50));
+    }
+
+    public function storeCustomer(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        $customer = Customer::create($validated);
+        return response()->json(['success' => true, 'customer' => $customer]);
     }
 
     public function updateCustomer(Request $request, $id)
@@ -182,35 +202,62 @@ class MobileDashboardController extends Controller
         return response()->json(Service::all());
     }
 
+    public function storeService(Request $request)
+    {
+        $validated = $request->validate([
+            'names' => 'required|array',
+            'price' => 'required|numeric',
+            'duration_minutes' => 'required|integer',
+        ]);
+
+        $service = Service::create([
+            'name' => $validated['names'], // Spatie Translatable handles array
+            'price' => $validated['price'],
+            'duration_minutes' => $validated['duration_minutes'],
+        ]);
+
+        return response()->json(['success' => true, 'service' => $service]);
+    }
+
     public function updateService(Request $request, $id)
     {
         $service = Service::findOrFail($id);
         $validated = $request->validate([
-            'name' => 'required', // Can be string or array/JSON
+            'names' => 'required|array',
             'price' => 'required|numeric',
-            'duration_minutes' => 'nullable|integer',
+            'duration_minutes' => 'required|integer',
         ]);
 
-        $service->update($validated);
+        $service->update([
+            'name' => $validated['names'],
+            'price' => $validated['price'],
+            'duration_minutes' => $validated['duration_minutes'],
+        ]);
+
         return response()->json(['success' => true, 'service' => $service]);
     }
 
-    public function payments()
+    public function completePayment(Request $request, $bookingId)
     {
-        return response()->json(
-            Payment::with(['booking.customer'])
-                ->latest()
-                ->paginate(20)
-        );
+        $request->validate(['amount' => 'required|numeric']);
+
+        try {
+            $booking = Booking::findOrFail($bookingId);
+            $payment = Payment::create([
+                'booking_id' => $booking->id,
+                'amount' => $request->amount,
+                'status' => 'completed',
+            ]);
+            $booking->update(['status' => 'completed']);
+            return response()->json(['success' => true, 'payment' => $payment]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function reminders()
     {
-        return response()->json(
-            Reminder::with(['booking.customer'])
-                ->latest()
-                ->paginate(20)
-        );
+        return response()->json(Reminder::with(['booking.customer'])->latest()->paginate(20));
     }
 
     public function smsTemplates()
