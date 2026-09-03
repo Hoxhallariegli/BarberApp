@@ -20,7 +20,7 @@ class Reminders extends Component
     #[Url(history: true)] public $booking_id = '';
     public bool $openFilter = false;
     public string $sortField = 'id';
-    public bool $sortAsc = true;
+    public bool $sortAsc = false;
 
     public function resetFilters() { $this->reset(['search', 'openFilter', 'booking_id', ]); $this->resetPage(); }
 

@@ -49,13 +49,13 @@ class SendBerberReminders extends Command
                     $template
                 );
             } else {
-                $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time}. Konfirmoni ketu: {$confirmUrl}";
+                $body = "STATION: Pershendetje {$customerName}, keni takim ne oren {$time} {$date}. Konfirmo ketu: {$confirmUrl}";
             }
 
             $extraData = [
                 'show_notification' => 'true',
-                'notification_title' => "Rikujtesë: Takimi i orës {$time}",
-                'notification_body' => "Po i dërgohet SMS klientit {$customerName}"
+                'notification_title' => "Rikujtese: Takimi {$time}",
+                'notification_body' => "SMS per {$customerName}"
             ];
 
             if ($this->smsService->send($phone, $body, 'reminder', null, $extraData)) {
