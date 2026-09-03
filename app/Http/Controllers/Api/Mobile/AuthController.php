@@ -32,6 +32,8 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                // Kthejme te gjitha permissionet e userit
+                'permissions' => $user->getAllPermissions()->pluck('name'),
             ]
         ]);
     }

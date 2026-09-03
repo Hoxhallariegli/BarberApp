@@ -43,6 +43,13 @@ Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $re
 Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
+    Route::apiResource('payments', \App\Http\Controllers\Api\Mobile\PaymentController::class);
+    Route::apiResource('reminders', \App\Http\Controllers\Api\Mobile\ReminderController::class);
+    Route::apiResource('payments', \App\Http\Controllers\Api\Mobile\PaymentController::class);
+    Route::apiResource('bookings', \App\Http\Controllers\Api\Mobile\BookingController::class);
+    Route::apiResource('services', \App\Http\Controllers\Api\Mobile\ServiceController::class);
+    Route::apiResource('customers', \App\Http\Controllers\Api\Mobile\CustomerController::class);
+    Route::apiResource('barbers', \App\Http\Controllers\Api\Mobile\BarberController::class);
     Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
     Route::get('/barbers', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'barbers']);

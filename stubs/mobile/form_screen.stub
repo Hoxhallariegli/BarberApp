@@ -1,0 +1,79 @@
+import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
+import 'dart:convert';
+
+class {{ClassName}}FormScreen extends StatefulWidget {
+  final Map<String, dynamic>? item;
+  const {{ClassName}}FormScreen({super.key, this.item});
+
+  @override
+  State<{{ClassName}}FormScreen> createState() => _{{ClassName}}FormScreenState();
+}
+
+class _{{ClassName}}FormScreenState extends State<{{ClassName}}FormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final Map<String, TextEditingController> _controllers = {};
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final fields = [{{FieldsList}}];
+    for (var field in fields) {
+      _controllers[field] = TextEditingController(text: widget.item?[field]?.toString() ?? '');
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+
+    final payload = <String, dynamic>{};
+    _controllers.forEach((key, controller) {
+      payload[key] = controller.text;
+    });
+
+    try {
+      final response = widget.item == null
+        ? await ApiService.post('{{ApiEndpoint}}', payload)
+        : await ApiService.post('{{ApiEndpoint}}/${widget.item!['id']}', payload);
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("U ruajt me sukses!")));
+          Navigator.pop(context, true);
+        }
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gabim: $e")));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      app_bar: AppBar(title: Text(widget.item == null ? "Shto {{ClassName}}" : "Edito {{ClassName}}")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              {{FormFieldWidgets}}
+              const SizedBox(height: 32),
+              _isSaving
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton(
+                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                    onPressed: _save,
+                    child: const Text("RUAJ")
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
