@@ -56,10 +56,10 @@ class BarberScheduleConfig extends Component
             BarberSchedule::updateOrCreate(
                 ['barber_id' => $this->barber->id, 'day_of_week' => $dayNum],
                 [
-                    'start_time' => $data['start_time'],
-                    'end_time' => $data['end_time'],
-                    'break_start_time' => $data['break_start_time'],
-                    'break_end_time' => $data['break_end_time'],
+                    'start_time' => $data['start_time'] ?: null,
+                    'end_time' => $data['end_time'] ?: null,
+                    'break_start_time' => $data['break_start_time'] ?: null,
+                    'break_end_time' => $data['break_end_time'] ?: null,
                     'is_working' => $data['is_working'],
                 ]
             );
