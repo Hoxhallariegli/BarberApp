@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Barber;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BarberController extends Controller
 {
@@ -34,10 +35,24 @@ class BarberController extends Controller
         return response()->json($items);
     }
 
+    protected function prepareData(Request $request)
+    {
+        $data = $request->all();
+        $jsonFields = array (
+);
+        foreach ($jsonFields as $f) {
+            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) {
+                $data[$f] = json_decode($data[$f], true);
+            }
+        }
+        return $data;
+    }
+
     public function store(Request $request)
     {
+        $data = $this->prepareData($request);
         $rules = method_exists(Barber::class, 'rules') ? Barber::rules() : [];
-        $validated = $request->validate($rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray());
+        $validated = validator($data, $rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray())->validate();
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -53,8 +68,9 @@ class BarberController extends Controller
     public function update(Request $request, $id)
     {
         $item = Barber::findOrFail($id);
+        $data = $this->prepareData($request);
         $rules = method_exists(Barber::class, 'rules') ? Barber::rules($id) : [];
-        $validated = $request->validate($rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray());
+        $validated = validator($data, $rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray())->validate();
 
         if ($request->hasFile('photo')) {
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
