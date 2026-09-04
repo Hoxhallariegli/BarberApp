@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Customer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class CustomerController extends Controller
 {

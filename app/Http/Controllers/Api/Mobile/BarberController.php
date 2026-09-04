@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Barber;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class BarberController extends Controller
 {

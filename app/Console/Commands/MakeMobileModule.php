@@ -15,9 +15,9 @@ use Throwable;
 class MakeMobileModule extends Command
 {
     protected $signature = 'make:mobile-module
-        {name : Emri i Modelit, psh Barber}
-        {--force : Mbishkruaj skedarët nëse ekzistojnë}
-        {--build : Run flutter clean and build apk after generation}';
+        {name : Emri i Modelit}
+        {--force : Mbishkruaj skedarët}
+        {--build : Build APK}';
 
     protected $description = 'Enterprise Scaffolder for Mobile - Universal Dynamic Version';
 
@@ -42,7 +42,7 @@ class MakeMobileModule extends Command
 
         $relations = $this->detectRelations($modelClass, $fields);
         $allRelations = $this->discoverAllRelations($modelClass);
-        $jsonFields = $this->detectJsonFields($model);
+        $jsonFields = array_keys(array_filter($model->getCasts(), fn($c) => in_array($c, ['array', 'json', 'object', 'collection'])));
 
         $meta = compact('className', 'snake', 'plural', 'pluralKebab', 'pluralSnake', 'fields', 'relations', 'allRelations', 'modelNamespace', 'jsonFields');
 
@@ -54,15 +54,13 @@ class MakeMobileModule extends Command
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_list_page.dart"), $this->listTemplate($meta), $force);
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_form_screen.dart"), $this->formTemplate($meta), $force);
 
-            if ($this->option('build')) {
-                $this->runBuild();
-            }
+            if ($this->option('build')) $this->runBuild();
         } catch (Throwable $e) {
             $this->error('Gjenerimi dështoi: ' . $e->getMessage());
             return self::FAILURE;
         }
 
-        $this->info("✅ Moduli {$className} u rikrijua me logjikë plotësisht dinamike!");
+        $this->info("✅ Moduli {$className} u rikrijua!");
         return self::SUCCESS;
     }
 
@@ -82,11 +80,7 @@ class MakeMobileModule extends Command
             if (Str::endsWith($field, '_id')) {
                 $method = Str::camel(Str::beforeLast($field, '_id'));
                 if (method_exists($modelClass, $method)) {
-                    $relations[$field] = [
-                        'method' => $method,
-                        'endpoint' => Str::kebab(Str::plural($method)),
-                        'label' => Str::headline($method),
-                    ];
+                    $relations[$field] = ['method' => $method, 'endpoint' => Str::kebab(Str::plural($method)), 'label' => Str::headline($method)];
                 }
             }
         }
@@ -100,20 +94,11 @@ class MakeMobileModule extends Command
         foreach ($methods as $method) {
             if ($method->class !== $modelClass || $method->getNumberOfParameters() > 0) continue;
             try {
-                $instance = new $modelClass();
-                $return = $method->invoke($instance);
-                if ($return instanceof \Illuminate\Database\Eloquent\Relations\Relation) {
-                    $relations[] = $method->name;
-                }
+                $return = $method->invoke(new $modelClass());
+                if ($return instanceof \Illuminate\Database\Eloquent\Relations\Relation) $relations[] = $method->name;
             } catch (Throwable $e) {}
         }
         return array_unique($relations);
-    }
-
-    private function detectJsonFields(Model $model): array
-    {
-        $casts = $model->getCasts();
-        return array_keys(array_filter($casts, fn($c) => in_array($c, ['array', 'json', 'object', 'collection'])));
     }
 
     private function writeGenerated(string $path, string $content, bool $force): void
@@ -130,8 +115,11 @@ class MakeMobileModule extends Command
         $content = File::get($path);
         $route = "    Route::apiResource('{$endpoint}', \\App\\Http\\Controllers\\Api\\Mobile\\{$className}Controller::class);";
         if (!Str::contains($content, "apiResource('{$endpoint}'")) {
-            $content = str_replace("Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {", "Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {\n$route", $content);
-            File::put($path, $content);
+            $marker = "Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {";
+            if (Str::contains($content, $marker)) {
+                $content = str_replace($marker, $marker . "\n" . $route, $content);
+                File::put($path, $content);
+            }
         }
     }
 
@@ -144,11 +132,9 @@ class MakeMobileModule extends Command
 
     private function runBuild(): void
     {
-        $this->info("🚀 Duke filluar pastrimin e Flutter...");
         $path = base_path('mobile-gateway');
         $commands = ["cd {$path} && flutter clean", "cd {$path} && flutter pub get", "cd {$path} && flutter build apk --release"];
         foreach ($commands as $cmd) {
-            $this->info("Ekzekutimi: {$cmd}");
             $process = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
             if (is_resource($process)) {
                 while ($line = fgets($pipes[1])) $this->line(trim($line));
@@ -163,7 +149,7 @@ class MakeMobileModule extends Command
         $withStr = !empty($m['allRelations']) ? "->with(" . var_export($m['allRelations'], true) . ")" : "";
         $jsonFieldsArr = var_export($m['jsonFields'], true);
 
-        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Support\\Facades\\Storage;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        \$items = {$m['className']}::query(){$withStr}->latest()->paginate(50);\n        \$jsonFields = {$jsonFieldsArr};\n        \$items->getCollection()->transform(function(\$item) use (\$jsonFields) {\n            foreach (\$jsonFields as \$f) {\n                \$val = \$item->getRawOriginal(\$f);\n                if (is_string(\$val) && str_starts_with(\$val, '{')) {\n                    \$item->setAttribute(\"{\$f}_raw\", json_decode(\$val, true));\n                } elseif (is_array(\$val)) {\n                    \$item->setAttribute(\"{\$f}_raw\", \$val);\n                } else {\n                     \$item->setAttribute(\"{\$f}_raw\", \$item->getAttributes()[\$f] ?? null);\n                }\n            }\n            return \$item;\n        });\n        return response()->json(\$items);\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item->update(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n        \$item->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
+        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        \$items = {$m['className']}::query(){$withStr}->latest()->paginate(50);\n        \$jsonFields = {$jsonFieldsArr};\n        \$items->getCollection()->transform(function(\$item) use (\$jsonFields) {\n            foreach (\$jsonFields as \$f) {\n                \$val = \$item->getRawOriginal(\$f);\n                if (is_string(\$val) && str_starts_with(\$val, '{')) {\n                    \$item->setAttribute(\"{\$f}_raw\", json_decode(\$val, true));\n                } elseif (is_array(\$val)) {\n                    \$item->setAttribute(\"{\$f}_raw\", \$val);\n                } else {\n                     \$item->setAttribute(\"{\$f}_raw\", \$item->getAttributes()[\$f] ?? null);\n                }\n            }\n            return \$item;\n        });\n        return response()->json(\$items);\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item->update(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n        \$item->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
     }
 
     private function listTemplate(array $m): string
