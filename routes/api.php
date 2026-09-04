@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CallLogController;
 use App\Http\Controllers\Api\SmsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
