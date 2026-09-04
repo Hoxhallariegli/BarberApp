@@ -19,7 +19,7 @@ class MakeMobileModule extends Command
         {--force : Mbishkruaj skedarët}
         {--build : Build APK}';
 
-    protected $description = 'Enterprise Scaffolder for Mobile - Universal Dynamic Version';
+    protected $description = 'Enterprise Scaffolder for Mobile - Final Clean Version';
 
     public function handle(): int
     {
@@ -60,7 +60,7 @@ class MakeMobileModule extends Command
             return self::FAILURE;
         }
 
-        $this->info("✅ Moduli {$className} u rikrijua!");
+        $this->info("✅ Moduli {$className} u rikrijua me sukses!");
         return self::SUCCESS;
     }
 
@@ -94,7 +94,8 @@ class MakeMobileModule extends Command
         foreach ($methods as $method) {
             if ($method->class !== $modelClass || $method->getNumberOfParameters() > 0) continue;
             try {
-                $return = $method->invoke(new $modelClass());
+                $instance = new $modelClass();
+                $return = $method->invoke($instance);
                 if ($return instanceof \Illuminate\Database\Eloquent\Relations\Relation) $relations[] = $method->name;
             } catch (Throwable $e) {}
         }
