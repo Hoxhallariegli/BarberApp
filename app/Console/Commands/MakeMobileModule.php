@@ -63,7 +63,7 @@ class MakeMobileModule extends Command
             return self::FAILURE;
         }
 
-        $this->info("✅ Moduli {$className} u rikrijua saktë!");
+        $this->info("✅ Moduli {$className} u rikrijua me sukses!");
         return self::SUCCESS;
     }
 
