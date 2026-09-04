@@ -18,7 +18,7 @@ class MakeMobileModule extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Enterprise Scaffolder for Mobile - Universal Dynamic Version';
+    protected $description = 'Enterprise Scaffolder for Mobile - Final Professional Version';
 
     public function handle(): int
     {
@@ -116,15 +116,62 @@ class MakeMobileModule extends Command
     private function ensureRoute(string $endpoint, string $className): void
     {
         $path = base_path('routes/api.php');
-        if (!File::exists($path)) return;
+        if (!File::exists($path)) {
+            $this->warn("  ⚠ routes/api.php nuk u gjet — shtoje route-n manualisht.");
+            return;
+        }
+
         $content = File::get($path);
         $route = "    Route::apiResource('{$endpoint}', \\App\\Http\\Controllers\\Api\\Mobile\\{$className}Controller::class);";
-        if (!Str::contains($content, "apiResource('{$endpoint}'")) {
-            $marker = "Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {";
-            if (Str::contains($content, $marker)) {
-                $content = str_replace($marker, $marker . "\n" . $route, $content);
-                File::put($path, $content);
-            }
+
+        // Route-i ekziston tashmë (me thonjëza të njëfishta ose të dyfishta)?
+        if (Str::contains($content, "apiResource('{$endpoint}'") || Str::contains($content, "apiResource(\"{$endpoint}\"")) {
+            $this->line("  → Route për '{$endpoint}' ekziston tashmë, s'u prek.");
+            $this->clearRouteCache();
+            return;
+        }
+
+        // BUG-U KRYESOR ISHTE KËTU: kërkonim VETËM një string EKZAKT si marker.
+        // Çdo ndryshim (thonjëza "..." në vend të '...', ->prefix() para ->middleware(),
+        // hapësira/rreshta ndryshe, sintaksë array-e Route::group([...])) e bënte
+        // marker-in të mos përputhej, komanda "kalonte me sukses" por route-i s'shtohej
+        // asnjëherë — prandaj app-i merrte 404 "route not found" te api/mobile/...
+        // Tani përdorim regex që njeh të dy renditjet dhe të dy stilet e thonjëzave.
+        $pattern = '/Route::(?:middleware\((?:\'|")auth:sanctum(?:\'|")\)\s*->\s*prefix\((?:\'|")mobile(?:\'|")\)'
+                 . '|prefix\((?:\'|")mobile(?:\'|")\)\s*->\s*middleware\((?:\'|")auth:sanctum(?:\'|")\))'
+                 . '\s*->\s*group\(function\s*\(\s*\)\s*\{/';
+
+        if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            $marker = $matches[0][0];
+            $insertAt = $matches[0][1] + strlen($marker);
+            $content = substr_replace($content, "\n" . $route, $insertAt, 0);
+            File::put($path, $content);
+            $this->info("  → Route u shtua brenda grupit ekzistues 'mobile'.");
+            $this->clearRouteCache();
+            return;
+        }
+
+        // S'u gjet asnjë grup 'mobile' + 'auth:sanctum' — në vend që ta anashkalojmë
+        // në heshtje (siç bënte versioni i vjetër), krijojmë një grup të ri vetë,
+        // dhe e sinjalizojmë qartë që duhet kontrolluar/bashkuar manualisht.
+        $newGroup = "\n\nRoute::middleware('auth:sanctum')->prefix('mobile')->group(function () {\n{$route}\n});\n";
+        File::append($path, $newGroup);
+        $this->warn("  ⚠ S'u gjet grup ekzistues 'mobile' + 'auth:sanctum' te routes/api.php.");
+        $this->warn("  ⚠ U shtua një grup i ri në fund të skedarit — kontrolloje dhe bashkoje me grupin ekzistues nëse ka (mos i lër dy grupe të veçanta).");
+        $this->clearRouteCache();
+    }
+
+    private function clearRouteCache(): void
+    {
+        // Shkaku #1 i "route not found" pas gjenerimit: route-t ishin cache-uar
+        // (php artisan route:cache) dhe route-t e reja s'lexohen derisa cache-i
+        // të pastrohet. E bëjmë automatikisht këtu.
+        $cacheExists = File::exists(base_path('bootstrap/cache/routes-v7.php'))
+            || File::exists(base_path('bootstrap/cache/routes.php'));
+
+        if ($cacheExists) {
+            $this->call('route:clear');
+            $this->warn('  ⚠ Route cache ishte aktiv dhe u pastrua. Nëse jeni në production, rikruaje me: php artisan route:cache');
         }
     }
 
