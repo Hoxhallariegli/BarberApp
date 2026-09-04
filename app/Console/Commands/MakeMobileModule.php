@@ -18,7 +18,7 @@ class MakeMobileModule extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Enterprise Scaffolder for Mobile - Final Professional Version';
+    protected $description = 'Enterprise Scaffolder for Mobile - Universal Dynamic Version';
 
     public function handle(): int
     {
