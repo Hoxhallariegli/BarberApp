@@ -187,7 +187,7 @@ class MakeMobileModule extends Command
                           backgroundColor: Colors.black,
                           backgroundImage: item['photo'] != null ? NetworkImage('\${ApiService.serverUrl}/storage/\${item['photo']}') : null,
                           child: item['photo'] == null ? Text(_getName(item['name']).isNotEmpty ? _getName(item['name'])[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
-                        )";
+                        ),";
 
         $template = <<<'DART'
 import 'package:flutter/material.dart';
