@@ -163,7 +163,7 @@ class MakeMobileModule extends Command
         if ($m['className'] == 'Barber') $withArr[] = 'schedules';
         $withStr = count($withArr) > 0 ? "->with(" . var_export($withArr, true) . ")" : "";
 
-        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        // abort_if_cannot('view_{$m['pluralSnake']}');\n        return response()->json({$m['className']}::query(){$withStr}->latest()->paginate(50));\n    }\n\n    public function store(Request \$request)\n    {\n        // abort_if_cannot('add_{$m['pluralSnake']}');\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        // abort_if_cannot('edit_{$m['pluralSnake']}');\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n        \$item->update(\$validated);\n        if (\$request->has('schedules') && method_exists(\$item, 'schedules')) {\n            foreach (\$request->schedules as \$s) {\n                \$item->schedules()->updateOrCreate(['day_of_week' => \$s['day_of_week']], collect(\$s)->except(['id','barber_id','created_at','updated_at'])->toArray());\n            }\n        }\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        // abort_if_cannot('delete_{$m['pluralSnake']}');\n        {$m['className']}::findOrFail(\$id)->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
+        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Support\\Facades\\Storage;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        return response()->json({$m['className']}::query(){$withStr}->latest()->paginate(50));\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n        \n        if (\$request->hasFile('photo')) {\n            \$validated['photo'] = \$request->file('photo')->store('uploads', 'public');\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo) Storage::disk('public')->delete(\$item->photo);\n            \$validated['photo'] = \$request->file('photo')->store('uploads', 'public');\n        }\n\n        \$item->update(\$validated);\n        if (\$request->has('schedules') && method_exists(\$item, 'schedules')) {\n            \$schedules = is_string(\$request->schedules) ? json_decode(\$request->schedules, true) : \$request->schedules;\n            foreach (\$schedules as \$s) {\n                \$item->schedules()->updateOrCreate(['day_of_week' => \$s['day_of_week']], collect(\$s)->except(['id','barber_id','created_at','updated_at'])->toArray());\n            }\n        }\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        {$m['className']}::findOrFail(\$id)->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
     }
 
     private function listTemplate(array $m): string
@@ -174,10 +174,20 @@ class MakeMobileModule extends Command
 
         $extraFieldsLogic = "";
         foreach ($m['fields'] as $f) {
-            if (in_array($f, ['id', 'created_at', 'updated_at', 'name']) || isset($m['relations'][$f])) continue;
+            $isImage = Str::contains($f, ['photo', 'image', 'avatar', 'picture']);
+            $isIgnored = in_array($f, ['id', 'created_at', 'updated_at', 'name', 'token', 'fcm_token', 'customer_name', 'customer_phone']);
+            if ($isIgnored || isset($m['relations'][$f]) || $isImage) continue;
+
             $label = Str::headline($f);
             $extraFieldsLogic .= "if (item['$f'] != null) ...[const SizedBox(height: 4), Row(children: [Text('$label: ', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)), Expanded(child: Text('\${item['$f']}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))])],\n";
         }
+
+        $avatarLogic = "CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Colors.black,
+                          backgroundImage: item['photo'] != null ? NetworkImage('\${ApiService.serverUrl}/storage/\${item['photo']}') : null,
+                          child: item['photo'] == null ? Text(_getName(item['name']).isNotEmpty ? _getName(item['name'])[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
+                        )";
 
         $template = <<<'DART'
 import 'package:flutter/material.dart';
@@ -275,11 +285,7 @@ class _##CLASS##ListPageState extends State<##CLASS##ListPage> {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Colors.black,
-                          child: Text(_getName(item['name']).isNotEmpty ? _getName(item['name'])[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
+                        ##AVATAR_LOGIC##
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -311,8 +317,8 @@ class _##CLASS##ListPageState extends State<##CLASS##ListPage> {
 DART;
 
         return str_replace(
-            ['##SNAKE##', '##CLASS##', '##PLURAL_KEBAB##', '##PLURAL##', '##SUBTITLE_LOGIC##', '##EXTRA_FIELDS##'],
-            [$m['snake'], $m['className'], $m['pluralKebab'], $m['plural'], $subtitleLogic, $extraFieldsLogic],
+            ['##SNAKE##', '##CLASS##', '##PLURAL_KEBAB##', '##PLURAL##', '##SUBTITLE_LOGIC##', '##EXTRA_FIELDS##', '##AVATAR_LOGIC##'],
+            [$m['snake'], $m['className'], $m['pluralKebab'], $m['plural'], $subtitleLogic, $extraFieldsLogic, $avatarLogic],
             $template
         );
     }
@@ -320,13 +326,38 @@ DART;
     private function formTemplate(array $m): string
     {
         $vars = ""; $init = ""; $loaders = ""; $payloadExtra = ""; $widgets = "";
+        $hasImage = false;
 
         foreach ($m['fields'] as $f) {
+            $isIgnored = in_array($f, ['id', 'created_at', 'updated_at', 'token', 'fcm_token', 'customer_name', 'customer_phone']);
+            if ($isIgnored) continue;
+
             $safe = Str::studly($f);
             $label = Str::headline($f);
+            $isImage = Str::contains($f, ['photo', 'image', 'avatar', 'picture']);
             $isTranslatable = ($f === 'name' && $m['className'] === 'Service');
 
-            if (isset($m['relations'][$f])) {
+            if ($isImage) {
+                $hasImage = true;
+                $vars .= "  String? _imagePath;\n";
+                $widgets .= "            const Text('Foto', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                final picker = ImagePicker();
+                final picked = await picker.pickImage(source: ImageSource.gallery);
+                if (picked != null) setState(() => _imagePath = picked.path);
+              },
+              child: Container(
+                height: 150, width: double.infinity,
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade300)),
+                child: _imagePath != null
+                  ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(File(_imagePath!), fit: BoxFit.cover))
+                  : (widget.item?['$f'] != null
+                    ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network('\${ApiService.serverUrl}/storage/\${widget.item!['$f']}', fit: BoxFit.cover))
+                    : const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)),
+              ),
+            ), const SizedBox(height: 20),\n";
+            } elseif (isset($m['relations'][$f])) {
                 $rel = $m['relations'][$f];
                 $vars .= "  List<dynamic> _{$rel['method']}Options = []; dynamic _selected{$safe};\n";
                 $init .= "    _selected{$safe} = widget.item?['$f'];\n";
@@ -399,11 +430,17 @@ DART;
             $payloadExtra .= "    payload['schedules'] = _schedules;\n";
         }
 
+        $saveCall = $hasImage
+            ? "await ApiService.postMultipart(widget.item == null ? '/##PLURAL_KEBAB##' : '/##PLURAL_KEBAB##/\${widget.item!['id']}', payload, filePath: _imagePath, fieldName: 'photo')"
+            : "await ApiService.post(widget.item == null ? '/##PLURAL_KEBAB##' : '/##PLURAL_KEBAB##/\${widget.item!['id']}', payload)";
+
         $template = <<<'DART'
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class ##CLASS##FormScreen extends StatefulWidget {
   final Map<String, dynamic>? item;
@@ -431,29 +468,33 @@ class _##CLASS##FormState extends State<##CLASS##FormScreen> {
     _controllers.forEach((k, v) => payload[k] = v.text);
     ##PAYLOAD_EXTRA##
     try {
-      final res = widget.item == null
-        ? await ApiService.post('/##PLURAL_KEBAB##', payload)
-        : await ApiService.post('/##PLURAL_KEBAB##/${widget.item!['id']}', payload);
-      if (res.statusCode >= 200 && res.statusCode < 300) Navigator.pop(context, true);
-    } catch (_) {}
+      final res = ##SAVE_CALL##;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (mounted) Navigator.pop(context, true);
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: \${res.body}')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim rrjeti: \$e')));
+    }
     setState(() => _isSaving = false);
   }
 
   @override Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
     appBar: AppBar(elevation: 0, backgroundColor: Colors.white, iconTheme: const IconThemeData(color: Colors.black), title: Text(widget.item == null ? 'Shto' : 'Edito', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900))),
-    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(24), child: Form(key: _formKey, child: Column(children: [
+    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(24), child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       ##WIDGETS##
       const SizedBox(height: 30),
-      SizedBox(width: double.infinity, height: 60, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900))))
+      SizedBox(width: double.infinity, height: 60, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900))))
     ]))),
   );
 }
 DART;
 
         return str_replace(
-            ['##CLASS##', '##PLURAL_KEBAB##', '##VARS##', '##INIT##', '##LOADERS##', '##PAYLOAD_EXTRA##', '##WIDGETS##'],
-            [$m['className'], $m['pluralKebab'], $vars, $init, $loaders, $payloadExtra, $widgets],
+            ['##CLASS##', '##PLURAL_KEBAB##', '##VARS##', '##INIT##', '##LOADERS##', '##PAYLOAD_EXTRA##', '##WIDGETS##', '##SAVE_CALL##'],
+            [$m['className'], $m['pluralKebab'], $vars, $init, $loaders, $payloadExtra, $widgets, $saveCall],
             $template
         );
     }
