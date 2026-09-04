@@ -10,9 +10,11 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $items = Customer::query()->latest()->paginate(50);
+        $query = Customer::query();
+        $items = $query->latest()->paginate(50);
         $jsonFields = array (
 );
+        
         $items->getCollection()->transform(function($item) use ($jsonFields) {
             foreach ($jsonFields as $f) {
                 $val = $item->getRawOriginal($f);

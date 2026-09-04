@@ -10,14 +10,16 @@ class BookingController extends Controller
 {
     public function index()
     {
-        $items = Booking::query()->with(array (
+        $query = Booking::query()->with(array (
   0 => 'customer',
   1 => 'barber',
   2 => 'service',
   3 => 'payments',
-))->latest()->paginate(50);
+));
+        $items = $query->latest()->paginate(50);
         $jsonFields = array (
 );
+        
         $items->getCollection()->transform(function($item) use ($jsonFields) {
             foreach ($jsonFields as $f) {
                 $val = $item->getRawOriginal($f);

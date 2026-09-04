@@ -10,10 +10,12 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        $items = Service::query()->latest()->paginate(50);
+        $query = Service::query();
+        $items = $query->latest()->paginate(50);
         $jsonFields = array (
   0 => 'name',
 );
+        
         $items->getCollection()->transform(function($item) use ($jsonFields) {
             foreach ($jsonFields as $f) {
                 $val = $item->getRawOriginal($f);

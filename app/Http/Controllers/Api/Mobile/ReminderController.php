@@ -10,11 +10,13 @@ class ReminderController extends Controller
 {
     public function index()
     {
-        $items = Reminder::query()->with(array (
+        $query = Reminder::query()->with(array (
   0 => 'booking',
-))->latest()->paginate(50);
+));
+        $items = $query->latest()->paginate(50);
         $jsonFields = array (
 );
+        
         $items->getCollection()->transform(function($item) use ($jsonFields) {
             foreach ($jsonFields as $f) {
                 $val = $item->getRawOriginal($f);

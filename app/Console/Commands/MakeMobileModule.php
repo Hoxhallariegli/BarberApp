@@ -16,19 +16,17 @@ class MakeMobileModule extends Command
 {
     protected $signature = 'make:mobile-module
         {name : Emri i Modelit}
-        {--force : Mbishkruaj skedarët}
-        {--build : Build APK}';
+        {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Enterprise Scaffolder for Mobile - Final Clean Version';
+    protected $description = 'Enterprise Scaffolder for Mobile - Final Professional Version';
 
     public function handle(): int
     {
         $name = (string) $this->argument('name');
         $className = Str::studly($name);
         $snake = Str::snake($className);
-        $plural = Str::plural($className);
-        $pluralKebab = Str::kebab($plural);
-        $pluralSnake = Str::snake($plural);
+        $pluralKebab = Str::kebab(Str::plural($className));
+        $pluralSnake = Str::snake(Str::plural($className));
         $force = (bool) $this->option('force');
 
         [$modelClass, $modelNamespace] = $this->resolveModel($className);
@@ -40,11 +38,18 @@ class MakeMobileModule extends Command
         $model = new $modelClass();
         $fields = array_values(array_filter($model->getFillable(), static fn ($f) => is_string($f) && !in_array($f, ['id', 'created_at', 'updated_at', 'deleted_at'])));
 
-        $relations = $this->detectRelations($modelClass, $fields);
-        $allRelations = $this->discoverAllRelations($modelClass);
-        $jsonFields = array_keys(array_filter($model->getCasts(), fn($c) => in_array($c, ['array', 'json', 'object', 'collection'])));
-
-        $meta = compact('className', 'snake', 'plural', 'pluralKebab', 'pluralSnake', 'fields', 'relations', 'allRelations', 'modelNamespace', 'jsonFields');
+        $meta = [
+            'className' => $className,
+            'snake' => $snake,
+            'plural' => Str::plural($className),
+            'pluralKebab' => $pluralKebab,
+            'pluralSnake' => $pluralSnake,
+            'fields' => $fields,
+            'relations' => $this->detectRelations($modelClass, $fields),
+            'allRelations' => $this->discoverAllRelations($modelClass),
+            'jsonFields' => array_keys(array_filter($model->getCasts(), fn($c) => in_array($c, ['array', 'json', 'object', 'collection']))),
+            'modelNamespace' => $modelNamespace
+        ];
 
         try {
             $this->writeGenerated(app_path("Http/Controllers/Api/Mobile/{$className}Controller.php"), $this->controllerTemplate($meta), $force);
@@ -53,14 +58,12 @@ class MakeMobileModule extends Command
 
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_list_page.dart"), $this->listTemplate($meta), $force);
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_form_screen.dart"), $this->formTemplate($meta), $force);
-
-            if ($this->option('build')) $this->runBuild();
         } catch (Throwable $e) {
             $this->error('Gjenerimi dështoi: ' . $e->getMessage());
             return self::FAILURE;
         }
 
-        $this->info("✅ Moduli {$className} u rikrijua me sukses!");
+        $this->info("✅ Moduli {$className} u rikrijua saktë!");
         return self::SUCCESS;
     }
 
@@ -131,26 +134,13 @@ class MakeMobileModule extends Command
         }
     }
 
-    private function runBuild(): void
-    {
-        $path = base_path('mobile-gateway');
-        $commands = ["cd {$path} && flutter clean", "cd {$path} && flutter pub get", "cd {$path} && flutter build apk --release"];
-        foreach ($commands as $cmd) {
-            $process = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-            if (is_resource($process)) {
-                while ($line = fgets($pipes[1])) $this->line(trim($line));
-                fclose($pipes[0]); fclose($pipes[1]); fclose($pipes[2]); proc_close($process);
-            }
-        }
-    }
-
     private function controllerTemplate(array $m): string
     {
         $import = $m['modelNamespace'] . '\\' . $m['className'];
         $withStr = !empty($m['allRelations']) ? "->with(" . var_export($m['allRelations'], true) . ")" : "";
         $jsonFieldsArr = var_export($m['jsonFields'], true);
 
-        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        \$items = {$m['className']}::query(){$withStr}->latest()->paginate(50);\n        \$jsonFields = {$jsonFieldsArr};\n        \$items->getCollection()->transform(function(\$item) use (\$jsonFields) {\n            foreach (\$jsonFields as \$f) {\n                \$val = \$item->getRawOriginal(\$f);\n                if (is_string(\$val) && str_starts_with(\$val, '{')) {\n                    \$item->setAttribute(\"{\$f}_raw\", json_decode(\$val, true));\n                } elseif (is_array(\$val)) {\n                    \$item->setAttribute(\"{\$f}_raw\", \$val);\n                } else {\n                     \$item->setAttribute(\"{\$f}_raw\", \$item->getAttributes()[\$f] ?? null);\n                }\n            }\n            return \$item;\n        });\n        return response()->json(\$items);\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item->update(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n        \$item->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
+        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        \$query = {$m['className']}::query(){$withStr};\n        \$items = \$query->latest()->paginate(50);\n        \$jsonFields = {$jsonFieldsArr};\n        \n        \$items->getCollection()->transform(function(\$item) use (\$jsonFields) {\n            foreach (\$jsonFields as \$f) {\n                \$val = \$item->getRawOriginal(\$f);\n                if (is_string(\$val) && str_starts_with(\$val, '{')) {\n                    \$item->setAttribute(\"{\$f}_raw\", json_decode(\$val, true));\n                } elseif (is_array(\$val)) {\n                    \$item->setAttribute(\"{\$f}_raw\", \$val);\n                } else {\n                     \$item->setAttribute(\"{\$f}_raw\", \$item->getAttributes()[\$f] ?? null);\n                }\n            }\n            return \$item;\n        });\n        return response()->json(\$items);\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item->update(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n        \$item->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
     }
 
     private function listTemplate(array $m): string

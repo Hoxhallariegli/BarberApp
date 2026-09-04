@@ -10,12 +10,14 @@ class BarberController extends Controller
 {
     public function index()
     {
-        $items = Barber::query()->with(array (
+        $query = Barber::query()->with(array (
   0 => 'schedules',
   1 => 'absences',
-))->latest()->paginate(50);
+));
+        $items = $query->latest()->paginate(50);
         $jsonFields = array (
 );
+        
         $items->getCollection()->transform(function($item) use ($jsonFields) {
             foreach ($jsonFields as $f) {
                 $val = $item->getRawOriginal($f);
