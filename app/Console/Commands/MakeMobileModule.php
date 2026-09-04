@@ -8,6 +8,8 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use ReflectionClass;
+use ReflectionMethod;
 use Throwable;
 
 class MakeMobileModule extends Command
@@ -17,7 +19,7 @@ class MakeMobileModule extends Command
         {--force : Mbishkruaj skedarët nëse ekzistojnë}
         {--build : Run flutter clean and build apk after generation}';
 
-    protected $description = 'Enterprise Scaffolder for Mobile - Master Premium UI (Fixed Syntax)';
+    protected $description = 'Enterprise Scaffolder for Mobile - Universal Dynamic Version';
 
     public function handle(): int
     {
@@ -36,18 +38,19 @@ class MakeMobileModule extends Command
         }
 
         $model = new $modelClass();
-        $fields = array_values(array_filter($model->getFillable(), static fn ($f) => is_string($f) && $f !== 'id'));
-        $relations = $this->detectRelations($fields);
+        $fields = array_values(array_filter($model->getFillable(), static fn ($f) => is_string($f) && !in_array($f, ['id', 'created_at', 'updated_at', 'deleted_at'])));
 
-        $meta = compact('className', 'snake', 'plural', 'pluralKebab', 'pluralSnake', 'fields', 'relations', 'modelNamespace');
+        $relations = $this->detectRelations($modelClass, $fields);
+        $allRelations = $this->discoverAllRelations($modelClass);
+        $jsonFields = $this->detectJsonFields($model);
+
+        $meta = compact('className', 'snake', 'plural', 'pluralKebab', 'pluralSnake', 'fields', 'relations', 'allRelations', 'modelNamespace', 'jsonFields');
 
         try {
-            // Backend
             $this->writeGenerated(app_path("Http/Controllers/Api/Mobile/{$className}Controller.php"), $this->controllerTemplate($meta), $force);
             $this->ensureRoute($pluralKebab, $className);
             $this->addPermissions($className, $pluralSnake);
 
-            // Flutter
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_list_page.dart"), $this->listTemplate($meta), $force);
             $this->writeGenerated(base_path("mobile-gateway/lib/modules/dashboard/{$snake}_form_screen.dart"), $this->formTemplate($meta), $force);
 
@@ -56,11 +59,10 @@ class MakeMobileModule extends Command
             }
         } catch (Throwable $e) {
             $this->error('Gjenerimi dështoi: ' . $e->getMessage());
-            $this->line($e->getTraceAsString());
             return self::FAILURE;
         }
 
-        $this->info("✅ Moduli {$className} u rikrijua me dizajnin Premium Master!");
+        $this->info("✅ Moduli {$className} u rikrijua me logjikë plotësisht dinamike!");
         return self::SUCCESS;
     }
 
@@ -73,29 +75,45 @@ class MakeMobileModule extends Command
         return [null, null];
     }
 
-    private function detectRelations(array $fields): array
+    private function detectRelations(string $modelClass, array $fields): array
     {
         $relations = [];
         foreach ($fields as $field) {
             if (Str::endsWith($field, '_id')) {
-                $base = Str::beforeLast($field, '_id');
-                $pluralBase = Str::plural($base);
-                $endpoint = Str::kebab($pluralBase);
-
-                if ($base === 'barber') $endpoint = 'barbers';
-                if ($base === 'customer') $endpoint = 'customers';
-                if ($base === 'service') $endpoint = 'services';
-                if ($base === 'booking') $endpoint = 'bookings';
-
-                $relations[$field] = [
-                    'method' => Str::camel($base),
-                    'endpoint' => $endpoint,
-                    'label' => Str::headline($base),
-                    'model' => Str::studly($base)
-                ];
+                $method = Str::camel(Str::beforeLast($field, '_id'));
+                if (method_exists($modelClass, $method)) {
+                    $relations[$field] = [
+                        'method' => $method,
+                        'endpoint' => Str::kebab(Str::plural($method)),
+                        'label' => Str::headline($method),
+                    ];
+                }
             }
         }
         return $relations;
+    }
+
+    private function discoverAllRelations(string $modelClass): array
+    {
+        $methods = (new ReflectionClass($modelClass))->getMethods(ReflectionMethod::IS_PUBLIC);
+        $relations = [];
+        foreach ($methods as $method) {
+            if ($method->class !== $modelClass || $method->getNumberOfParameters() > 0) continue;
+            try {
+                $instance = new $modelClass();
+                $return = $method->invoke($instance);
+                if ($return instanceof \Illuminate\Database\Eloquent\Relations\Relation) {
+                    $relations[] = $method->name;
+                }
+            } catch (Throwable $e) {}
+        }
+        return array_unique($relations);
+    }
+
+    private function detectJsonFields(Model $model): array
+    {
+        $casts = $model->getCasts();
+        return array_keys(array_filter($casts, fn($c) => in_array($c, ['array', 'json', 'object', 'collection'])));
     }
 
     private function writeGenerated(string $path, string $content, bool $force): void
@@ -128,42 +146,24 @@ class MakeMobileModule extends Command
     {
         $this->info("🚀 Duke filluar pastrimin e Flutter...");
         $path = base_path('mobile-gateway');
-
-        $commands = [
-            "cd {$path} && flutter clean",
-            "cd {$path} && flutter pub get",
-            "cd {$path} && flutter build apk --release"
-        ];
-
+        $commands = ["cd {$path} && flutter clean", "cd {$path} && flutter pub get", "cd {$path} && flutter build apk --release"];
         foreach ($commands as $cmd) {
             $this->info("Ekzekutimi: {$cmd}");
-            $process = proc_open($cmd, [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => ['pipe', 'w']
-            ], $pipes);
-
+            $process = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
             if (is_resource($process)) {
-                while ($line = fgets($pipes[1])) {
-                    $this->line(trim($line));
-                }
-                fclose($pipes[0]);
-                fclose($pipes[1]);
-                fclose($pipes[2]);
-                proc_close($process);
+                while ($line = fgets($pipes[1])) $this->line(trim($line));
+                fclose($pipes[0]); fclose($pipes[1]); fclose($pipes[2]); proc_close($process);
             }
         }
-        $this->info("✅ Flutter Build përfundoi!");
     }
 
     private function controllerTemplate(array $m): string
     {
         $import = $m['modelNamespace'] . '\\' . $m['className'];
-        $withArr = array_column($m['relations'], 'method');
-        if ($m['className'] == 'Barber') $withArr[] = 'schedules';
-        $withStr = count($withArr) > 0 ? "->with(" . var_export($withArr, true) . ")" : "";
+        $withStr = !empty($m['allRelations']) ? "->with(" . var_export($m['allRelations'], true) . ")" : "";
+        $jsonFieldsArr = var_export($m['jsonFields'], true);
 
-        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Support\\Facades\\Storage;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        return response()->json({$m['className']}::query(){$withStr}->latest()->paginate(50));\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n        \n        if (\$request->hasFile('photo')) {\n            \$validated['photo'] = \$request->file('photo')->store('uploads', 'public');\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        if (empty(\$rules)) {\n            \$rules = collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray();\n        }\n        \$validated = \$request->validate(\$rules);\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo) Storage::disk('public')->delete(\$item->photo);\n            \$validated['photo'] = \$request->file('photo')->store('uploads', 'public');\n        }\n\n        \$item->update(\$validated);\n        if (\$request->has('schedules') && method_exists(\$item, 'schedules')) {\n            \$schedules = is_string(\$request->schedules) ? json_decode(\$request->schedules, true) : \$request->schedules;\n            foreach (\$schedules as \$s) {\n                \$item->schedules()->updateOrCreate(['day_of_week' => \$s['day_of_week']], collect(\$s)->except(['id','barber_id','created_at','updated_at'])->toArray());\n            }\n        }\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        {$m['className']}::findOrFail(\$id)->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
+        return "<?php\n\nnamespace App\\Http\\Controllers\\Api\\Mobile;\n\nuse App\\Http\\Controllers\\Controller;\nuse {$import};\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Support\\Facades\\Storage;\n\nclass {$m['className']}Controller extends Controller\n{\n    public function index()\n    {\n        \$items = {$m['className']}::query(){$withStr}->latest()->paginate(50);\n        \$jsonFields = {$jsonFieldsArr};\n        \$items->getCollection()->transform(function(\$item) use (\$jsonFields) {\n            foreach (\$jsonFields as \$f) {\n                \$val = \$item->getRawOriginal(\$f);\n                if (is_string(\$val) && str_starts_with(\$val, '{')) {\n                    \$item->setAttribute(\"{\$f}_raw\", json_decode(\$val, true));\n                } elseif (is_array(\$val)) {\n                    \$item->setAttribute(\"{\$f}_raw\", \$val);\n                } else {\n                     \$item->setAttribute(\"{\$f}_raw\", \$item->getAttributes()[\$f] ?? null);\n                }\n            }\n            return \$item;\n        });\n        return response()->json(\$items);\n    }\n\n    public function store(Request \$request)\n    {\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules() : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item = {$m['className']}::create(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function update(Request \$request, \$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        \$rules = method_exists({$m['className']}::class, 'rules') ? {$m['className']}::rules(\$id) : [];\n        \$validated = \$request->validate(\$rules ?: collect((new {$m['className']})->getFillable())->mapWithKeys(fn(\$f) => [\$f => 'required'])->toArray());\n\n        if (\$request->hasFile('photo')) {\n            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n            \$file = \$request->file('photo');\n            \$name = time() . '_' . \$file->getClientOriginalName();\n            \$file->move(public_path('uploads'), \$name);\n            \$validated['photo'] = 'uploads/' . \$name;\n        }\n\n        \$item->update(\$validated);\n        return response()->json(['success' => true, 'data' => \$item]);\n    }\n\n    public function destroy(\$id)\n    {\n        \$item = {$m['className']}::findOrFail(\$id);\n        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));\n        \$item->delete();\n        return response()->json(['success' => true]);\n    }\n}\n";
     }
 
     private function listTemplate(array $m): string
@@ -174,20 +174,11 @@ class MakeMobileModule extends Command
 
         $extraFieldsLogic = "";
         foreach ($m['fields'] as $f) {
-            $isImage = Str::contains($f, ['photo', 'image', 'avatar', 'picture']);
-            $isIgnored = in_array($f, ['id', 'created_at', 'updated_at', 'name', 'token', 'fcm_token', 'customer_name', 'customer_phone']);
-            if ($isIgnored || isset($m['relations'][$f]) || $isImage) continue;
-
+            if (in_array($f, ['id', 'created_at', 'updated_at', 'name', 'token', 'fcm_token', 'customer_name', 'customer_phone', 'photo'])) continue;
+            if (isset($m['relations'][$f])) continue;
             $label = Str::headline($f);
-            $extraFieldsLogic .= "if (item['$f'] != null) ...[const SizedBox(height: 4), Row(children: [Text('$label: ', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)), Expanded(child: Text('\${item['$f']}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))])],\n";
+            $extraFieldsLogic .= "if (item['$f'] != null) ...[const SizedBox(height: 4), Row(children: [Text('$label: ', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)), Expanded(child: Text(_getName(item['$f']), style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))])],\n";
         }
-
-        $avatarLogic = "CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Colors.black,
-                          backgroundImage: item['photo'] != null ? NetworkImage('\${ApiService.serverUrl}/storage/\${item['photo']}') : null,
-                          child: item['photo'] == null ? Text(_getName(item['name']).isNotEmpty ? _getName(item['name'])[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
-                        ),";
 
         $template = <<<'DART'
 import 'package:flutter/material.dart';
@@ -219,10 +210,24 @@ class _##CLASS##ListPageState extends State<##CLASS##ListPage> {
   void _filter(String q) { setState(() => _filtered = _items.where((i) => i.toString().toLowerCase().contains(q.toLowerCase())).toList()); }
 
   String _getName(dynamic n) {
-    if (n == null) return 'N/A';
-    if (n is Map) return (n['sq'] ?? n['en'] ?? n.values.firstOrNull ?? 'N/A').toString();
-    final str = n.toString();
-    return str.trim().isEmpty ? 'N/A' : str;
+    if (n == null) return '';
+    try {
+      if (n is String && n.trim().startsWith('{')) {
+        final Map<String, dynamic> decoded = jsonDecode(n);
+        return (decoded['sq'] ?? decoded['en'] ?? decoded.values.firstOrNull ?? '').toString();
+      }
+      if (n is Map) return (n['sq'] ?? n['en'] ?? n.values.firstOrNull ?? '').toString();
+    } catch (_) {}
+    return n.toString();
+  }
+
+  String _getDisplayTitle(Map item) {
+    String name = _getName(item['name']);
+    if (name.isEmpty) name = _getName(item['customer_name']);
+    if (name.isEmpty) name = _getName(item['customer']?['name']);
+    if (name.isEmpty) name = _getName(item['title']);
+    if (name.isEmpty) name = _getName(item['label']);
+    return name.isEmpty ? 'ID: ${item['id']}' : name;
   }
 
   Future<void> _delete(int id) async {
@@ -232,80 +237,40 @@ class _##CLASS##ListPageState extends State<##CLASS##ListPage> {
 
   @override Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
-    appBar: AppBar(
-      elevation: 0,
-      backgroundColor: Colors.white,
-      title: const Text('##PLURAL##', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 24)),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(70),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: _search,
-            onChanged: _filter,
-            decoration: InputDecoration(
-              hintText: 'Kërko në ##PLURAL##...',
-              prefixIcon: const Icon(Icons.search, color: Colors.black54),
-              filled: true,
-              fillColor: Colors.grey[100],
-              contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-            ),
-          ),
-        ),
-      ),
-    ),
-    floatingActionButton: FloatingActionButton(
-      backgroundColor: Colors.black,
-      onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const ##CLASS##FormScreen())); if (res == true) _fetch(); },
-      child: const Icon(Icons.add, color: Colors.white),
-    ),
+    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: const Text('##PLURAL##', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 24))),
+    floatingActionButton: FloatingActionButton(backgroundColor: Colors.black, onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const ##CLASS##FormScreen())); if (res == true) _fetch(); }, child: const Icon(Icons.add, color: Colors.white)),
     body: _loading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : RefreshIndicator(
       onRefresh: _fetch,
-      child: _items.isEmpty ? const Center(child: Text("Nuk u gjet asgjë", style: TextStyle(color: Colors.grey))) : ListView.builder(
+      child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _filtered.length,
         itemBuilder: (context, index) {
           final item = _filtered[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
             child: InkWell(
               borderRadius: BorderRadius.circular(24),
               onTap: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => ##CLASS##FormScreen(item: item))); if (res == true) _fetch(); },
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        ##AVATAR_LOGIC##
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_getName(item['name']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                              Text(##SUBTITLE_LOGIC##, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                          onPressed: () => _delete(item['id']),
-                        ),
-                      ],
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    CircleAvatar(
+                      radius: 24, backgroundColor: Colors.black,
+                      backgroundImage: item['photo'] != null ? NetworkImage('${ApiService.serverUrl}/${item['photo']}') : null,
+                      child: item['photo'] == null ? Text(_getDisplayTitle(item).isNotEmpty ? _getDisplayTitle(item)[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
                     ),
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
-                    ##EXTRA_FIELDS##
-                  ],
-                ),
+                    const SizedBox(width: 16),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_getDisplayTitle(item), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text(##SUBTITLE_LOGIC##, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ])),
+                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), onPressed: () => _delete(item['id'])),
+                  ]),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+                  ##EXTRA_FIELDS##
+                ]),
               ),
             ),
           );
@@ -316,11 +281,7 @@ class _##CLASS##ListPageState extends State<##CLASS##ListPage> {
 }
 DART;
 
-        return str_replace(
-            ['##SNAKE##', '##CLASS##', '##PLURAL_KEBAB##', '##PLURAL##', '##SUBTITLE_LOGIC##', '##EXTRA_FIELDS##', '##AVATAR_LOGIC##'],
-            [$m['snake'], $m['className'], $m['pluralKebab'], $m['plural'], $subtitleLogic, $extraFieldsLogic, $avatarLogic],
-            $template
-        );
+        return str_replace(['##SNAKE##', '##CLASS##', '##PLURAL_KEBAB##', '##PLURAL##', '##SUBTITLE_LOGIC##', '##EXTRA_FIELDS##'], [$m['snake'], $m['className'], $m['pluralKebab'], $m['plural'], $subtitleLogic, $extraFieldsLogic], $template);
     }
 
     private function formTemplate(array $m): string
@@ -329,32 +290,23 @@ DART;
         $hasImage = false;
 
         foreach ($m['fields'] as $f) {
-            $isIgnored = in_array($f, ['id', 'created_at', 'updated_at', 'token', 'fcm_token', 'customer_name', 'customer_phone']);
-            if ($isIgnored) continue;
-
-            $safe = Str::studly($f);
-            $label = Str::headline($f);
+            if (in_array($f, ['id', 'created_at', 'updated_at', 'token', 'fcm_token', 'customer_name', 'customer_phone'])) continue;
+            $safe = Str::studly($f); $label = Str::headline($f);
             $isImage = Str::contains($f, ['photo', 'image', 'avatar', 'picture']);
-            $isTranslatable = ($f === 'name' && $m['className'] === 'Service');
+            $isTranslatable = in_array($f, $m['jsonFields']);
 
             if ($isImage) {
-                $hasImage = true;
-                $vars .= "  String? _imagePath;\n";
-                $widgets .= "            const Text('Foto', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8),
+                $hasImage = true; $vars .= "  String? _imagePath$safe;\n";
+                $widgets .= "            const Text('$label', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8),
             GestureDetector(
               onTap: () async {
-                final picker = ImagePicker();
-                final picked = await picker.pickImage(source: ImageSource.gallery);
-                if (picked != null) setState(() => _imagePath = picked.path);
+                final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (picked != null) setState(() => _imagePath$safe = picked.path);
               },
               child: Container(
                 height: 150, width: double.infinity,
                 decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade300)),
-                child: _imagePath != null
-                  ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(File(_imagePath!), fit: BoxFit.cover))
-                  : (widget.item?['$f'] != null
-                    ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network('\${ApiService.serverUrl}/storage/\${widget.item!['$f']}', fit: BoxFit.cover))
-                    : const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)),
+                child: _imagePath$safe != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(File(_imagePath$safe!))) : (widget.item?['$f'] != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network('\${ApiService.serverUrl}/\${widget.item!['$f']}', fit: BoxFit.cover)) : const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)),
               ),
             ), const SizedBox(height: 20),\n";
             } elseif (isset($m['relations'][$f])) {
@@ -365,53 +317,37 @@ DART;
                 $widgets .= "            DropdownButtonFormField<dynamic>(
               value: _{$rel['method']}Options.any((e) => e['id'] == _selected{$safe}) ? _selected{$safe} : null,
               validator: (v) => v == null ? 'Fusha $label është e detyrueshme' : null,
-              decoration: InputDecoration(
-                labelText: '$label',
-                prefixIcon: const Icon(Icons.link, color: Colors.black),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.black, width: 2)),
-              ),
-              items: _{$rel['method']}Options.map((e) => DropdownMenuItem<dynamic>(
-                value: e['id'],
-                child: Text(e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? 'N/A') : (e['name']?.toString() ?? 'ID: \${e['id']}'))
-              )).toList(),
+              decoration: InputDecoration(labelText: '$label', prefixIcon: const Icon(Icons.link, color: Colors.black), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
+              items: _{$rel['method']}Options.map((e) => DropdownMenuItem<dynamic>(value: e['id'], child: Text(e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? 'N/A') : (e['name']?.toString() ?? 'ID: \${e['id']}')))).toList(),
               onChanged: (v) => setState(() => _selected{$safe} = v)
             ), const SizedBox(height: 20),\n";
                 $payloadExtra .= "    payload['$f'] = _selected{$safe};\n";
             } elseif (str_contains($f, '_at') || str_contains($f, 'date')) {
                 $init .= "    _controllers['$f'] = TextEditingController(text: widget.item?['$f']?.toString() ?? '');\n";
                 $widgets .= "            TextFormField(
-              controller: _controllers['$f'],
-              readOnly: true,
-              validator: (v) => (v == null || v.isEmpty) ? 'Zgjidhni datën për $label' : null,
-              decoration: InputDecoration(
-                labelText: '$label',
-                prefixIcon: const Icon(Icons.calendar_today, color: Colors.black),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-              ),
+              controller: _controllers['$f'], readOnly: true, validator: (v) => (v == null || v.isEmpty) ? 'Zgjidhni datën për $label' : null,
+              decoration: InputDecoration(labelText: '$label', prefixIcon: const Icon(Icons.calendar_today, color: Colors.black), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
               onTap: () async {
                 DateTime? p = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
                 if(p != null) {
                   TimeOfDay? t = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-                  if(t != null) {
-                    final dt = DateTime(p.year, p.month, p.day, t.hour, t.minute);
-                    setState(() => _controllers['$f']!.text = dt.toIso8601String());
-                  }
+                  if(t != null) setState(() => _controllers['$f']!.text = DateTime(p.year, p.month, p.day, t.hour, t.minute).toIso8601String());
                 }
               }
             ), const SizedBox(height: 20),\n";
             } else {
                 if ($isTranslatable) {
-                    $vars .= "  final Map<String, TextEditingController> _langControllers = {'sq': TextEditingController(), 'en': TextEditingController()};\n";
-                    $init .= "    if(widget.item?['name'] is Map) { _langControllers['sq']!.text = widget.item!['name']['sq'] ?? ''; _langControllers['en']!.text = widget.item!['name']['en'] ?? ''; }\n";
-                    $widgets .= "            TextFormField(controller: _langControllers['sq'], validator: (v) => (v == null || v.isEmpty) ? 'Emri (SQ) i detyrueshëm' : null, decoration: InputDecoration(labelText: '$label (AL)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))), const SizedBox(height: 12),\n";
-                    $widgets .= "            TextFormField(controller: _langControllers['en'], decoration: InputDecoration(labelText: '$label (EN)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))), const SizedBox(height: 20),\n";
-                    $payloadExtra .= "    payload['name'] = {'sq': _langControllers['sq']!.text, 'en': _langControllers['en']!.text};\n";
+                    $vars .= "  final Map<String, TextEditingController> _{$f}LangControllers = {'sq': TextEditingController(), 'en': TextEditingController()};\n";
+                    $init .= "    dynamic {$f}Data = widget.item?['{$f}_raw'] ?? widget.item?['$f'];
+    if ({$f}Data is String && {$f}Data.trim().startsWith('{')) { try { {$f}Data = jsonDecode({$f}Data); } catch(_) {} }
+    if({$f}Data is Map) { _{$f}LangControllers['sq']!.text = {$f}Data['sq'] ?? ''; _{$f}LangControllers['en']!.text = {$f}Data['en'] ?? ''; }\n";
+                    $widgets .= "            TextFormField(controller: _{$f}LangControllers['sq'], validator: (v) => (v == null || v.isEmpty) ? '$label (SQ) i detyrueshëm' : null, decoration: InputDecoration(labelText: '$label (AL)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))), const SizedBox(height: 12),\n";
+                    $widgets .= "            TextFormField(controller: _{$f}LangControllers['en'], decoration: InputDecoration(labelText: '$label (EN)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))), const SizedBox(height: 20),\n";
+                    $payloadExtra .= "    payload['$f'] = {'sq': _{$f}LangControllers['sq']!.text, 'en': _{$f}LangControllers['en']!.text};\n";
                 } else {
                     $init .= "    _controllers['$f'] = TextEditingController(text: widget.item?['$f']?.toString() ?? '');\n";
                     $widgets .= "            TextFormField(
-              controller: _controllers['$f'],
-              validator: (v) => (v == null || v.isEmpty) ? 'Plotësoni $label' : null,
+              controller: _controllers['$f'], validator: (v) => (v == null || v.isEmpty) ? 'Plotësoni $label' : null,
               keyboardType: '$f'.contains('price') || '$f'.contains('rate') || '$f'.contains('minutes') ? TextInputType.number : TextInputType.text,
               decoration: InputDecoration(labelText: '$label', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))
             ), const SizedBox(height: 20),\n";
@@ -419,19 +355,17 @@ DART;
             }
         }
 
-        if ($m['className'] == 'Barber') {
-            $vars .= "  List<dynamic> _schedules = [];\n";
-            $init .= "    _schedules = List.from(widget.item?['schedules'] ?? []);\n";
-            $widgets .= "            const Text('Oraret e Punës', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), ...List.generate(7, (index) {
-              final day = index + 1;
-              var s = _schedules.firstWhere((e) => e['day_of_week'] == day, orElse: () => null);
-              return SwitchListTile(title: Text('Dita \$day'), value: s?['is_working'] ?? false, activeColor: Colors.black, onChanged: (v) => setState(() { if(s==null) { s={'day_of_week':day, 'is_working':v, 'start_time':'09:00', 'end_time':'18:00'}; _schedules.add(s); } else { s['is_working']=v; } }));
-            }),\n";
-            $payloadExtra .= "    payload['schedules'] = _schedules;\n";
+        $imgStrLogic = "";
+        foreach ($m['fields'] as $f) {
+             if (Str::contains($f, ['photo', 'image', 'avatar', 'picture'])) {
+                 $safe = Str::studly($f);
+                 $imgStrLogic .= "    String? _imagePathStr = _imagePath$safe;\n";
+                 break;
+             }
         }
 
         $saveCall = $hasImage
-            ? "await ApiService.postMultipart(widget.item == null ? '/##PLURAL_KEBAB##' : '/##PLURAL_KEBAB##/\${widget.item!['id']}', payload, filePath: _imagePath, fieldName: 'photo')"
+            ? "await ApiService.postMultipart(widget.item == null ? '/##PLURAL_KEBAB##' : '/##PLURAL_KEBAB##/\${widget.item!['id']}', payload, filePath: _imagePathStr, fieldName: 'photo')"
             : "await ApiService.post(widget.item == null ? '/##PLURAL_KEBAB##' : '/##PLURAL_KEBAB##/\${widget.item!['id']}', payload)";
 
         $template = <<<'DART'
@@ -467,15 +401,22 @@ class _##CLASS##FormState extends State<##CLASS##FormScreen> {
     final payload = <String, dynamic>{};
     _controllers.forEach((k, v) => payload[k] = v.text);
     ##PAYLOAD_EXTRA##
+    ##IMG_STR_LOGIC##
     try {
       final res = ##SAVE_CALL##;
       if (res.statusCode >= 200 && res.statusCode < 300) {
         if (mounted) Navigator.pop(context, true);
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: \${res.body}')));
+        String msg = res.body;
+        try {
+          final err = jsonDecode(res.body);
+          if (err['errors'] != null) msg = (err['errors'] as Map).values.first[0];
+          else if (err['message'] != null) msg = err['message'];
+        } catch(_) {}
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: $msg'), backgroundColor: Colors.redAccent));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim rrjeti: \$e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim rrjeti: $e'), backgroundColor: Colors.redAccent));
     }
     setState(() => _isSaving = false);
   }
@@ -492,10 +433,6 @@ class _##CLASS##FormState extends State<##CLASS##FormScreen> {
 }
 DART;
 
-        return str_replace(
-            ['##CLASS##', '##PLURAL_KEBAB##', '##VARS##', '##INIT##', '##LOADERS##', '##PAYLOAD_EXTRA##', '##WIDGETS##', '##SAVE_CALL##'],
-            [$m['className'], $m['pluralKebab'], $vars, $init, $loaders, $payloadExtra, $widgets, $saveCall],
-            $template
-        );
+        return str_replace(['##CLASS##', '##PLURAL_KEBAB##', '##VARS##', '##INIT##', '##LOADERS##', '##PAYLOAD_EXTRA##', '##WIDGETS##', '##SAVE_CALL##', '##IMG_STR_LOGIC##'], [$m['className'], $m['pluralKebab'], $vars, $init, $loaders, $payloadExtra, $widgets, $saveCall, $imgStrLogic], $template);
     }
 }

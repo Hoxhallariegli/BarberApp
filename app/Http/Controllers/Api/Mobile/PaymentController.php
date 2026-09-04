@@ -11,21 +11,37 @@ class PaymentController extends Controller
 {
     public function index()
     {
-        return response()->json(Payment::query()->with(array (
+        $items = Payment::query()->with(array (
   0 => 'booking',
-))->latest()->paginate(50));
+))->latest()->paginate(50);
+        $jsonFields = array (
+);
+        $items->getCollection()->transform(function($item) use ($jsonFields) {
+            foreach ($jsonFields as $f) {
+                $val = $item->getRawOriginal($f);
+                if (is_string($val) && str_starts_with($val, '{')) {
+                    $item->setAttribute("{$f}_raw", json_decode($val, true));
+                } elseif (is_array($val)) {
+                    $item->setAttribute("{$f}_raw", $val);
+                } else {
+                     $item->setAttribute("{$f}_raw", $item->getAttributes()[$f] ?? null);
+                }
+            }
+            return $item;
+        });
+        return response()->json($items);
     }
 
     public function store(Request $request)
     {
         $rules = method_exists(Payment::class, 'rules') ? Payment::rules() : [];
-        if (empty($rules)) {
-            $rules = collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray();
-        }
-        $validated = $request->validate($rules);
-        
+        $validated = $request->validate($rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray());
+
         if ($request->hasFile('photo')) {
-            $validated['photo'] = $request->file('photo')->store('uploads', 'public');
+            $file = $request->file('photo');
+            $name = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads'), $name);
+            $validated['photo'] = 'uploads/' . $name;
         }
 
         $item = Payment::create($validated);
@@ -36,29 +52,25 @@ class PaymentController extends Controller
     {
         $item = Payment::findOrFail($id);
         $rules = method_exists(Payment::class, 'rules') ? Payment::rules($id) : [];
-        if (empty($rules)) {
-            $rules = collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray();
-        }
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray());
 
         if ($request->hasFile('photo')) {
-            if ($item->photo) Storage::disk('public')->delete($item->photo);
-            $validated['photo'] = $request->file('photo')->store('uploads', 'public');
+            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
+            $file = $request->file('photo');
+            $name = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads'), $name);
+            $validated['photo'] = 'uploads/' . $name;
         }
 
         $item->update($validated);
-        if ($request->has('schedules') && method_exists($item, 'schedules')) {
-            $schedules = is_string($request->schedules) ? json_decode($request->schedules, true) : $request->schedules;
-            foreach ($schedules as $s) {
-                $item->schedules()->updateOrCreate(['day_of_week' => $s['day_of_week']], collect($s)->except(['id','barber_id','created_at','updated_at'])->toArray());
-            }
-        }
         return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function destroy($id)
     {
-        Payment::findOrFail($id)->delete();
+        $item = Payment::findOrFail($id);
+        if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
+        $item->delete();
         return response()->json(['success' => true]);
     }
 }
