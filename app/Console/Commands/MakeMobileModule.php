@@ -407,12 +407,7 @@ class _##CLASS##FormState extends State<##CLASS##FormScreen> {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         if (mounted) Navigator.pop(context, true);
       } else {
-        String msg = res.body;
-        try {
-          final err = jsonDecode(res.body);
-          if (err['errors'] != null) msg = (err['errors'] as Map).values.first[0];
-          else if (err['message'] != null) msg = err['message'];
-        } catch(_) {}
+        final msg = ApiService.extractErrorMessage(res);
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: $msg'), backgroundColor: Colors.redAccent));
       }
     } catch (e) {
