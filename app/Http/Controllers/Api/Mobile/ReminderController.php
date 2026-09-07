@@ -65,7 +65,7 @@ class ReminderController extends Controller
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
         }
     }
 

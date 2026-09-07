@@ -15,7 +15,7 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron modulin Mobile me UI Kompakte, Butona Stylish dhe Mbështetje Universale';
+    protected $description = 'Gjeneron modulin Mobile me Spatie Permissions, Compact UI dhe Secure Actions';
 
     private string $className;
     private string $snakeName;
@@ -30,7 +30,7 @@ class MakeMobileProCommand extends Command
         $this->pluralSnake = Str::plural($this->snakeName);
         $this->pluralKebab = Str::kebab(Str::plural($this->className));
 
-        $this->info("🚀 Duke përpunuar modulin PREMIUM COMPACT: {$this->className}");
+        $this->info("🚀 Duke përpunuar modulin SECURE PREMIUM: {$this->className}");
 
         if (!$this->resolveMeta()) return self::FAILURE;
 
@@ -42,7 +42,7 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterFormPage();
 
             $this->callSilently('route:clear');
-            $this->info("✅ Moduli {$this->className} u përfundua!");
+            $this->info("✅ Moduli {$this->className} u përfundua me sukses!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -61,16 +61,10 @@ class MakeMobileProCommand extends Command
 
         $modelClass = null;
         foreach ($candidates as $candidate) {
-            if (class_exists($candidate)) {
-                $modelClass = $candidate;
-                break;
-            }
+            if (class_exists($candidate)) { $modelClass = $candidate; break; }
         }
 
-        if (!$modelClass) {
-            $this->error("Modeli {$this->className} nuk u gjet.");
-            return false;
-        }
+        if (!$modelClass) { $this->error("Modeli {$this->className} nuk u gjet."); return false; }
 
         $model = new $modelClass();
         $this->meta = [
@@ -176,7 +170,7 @@ class {$this->className}Controller extends Controller
             \$item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable \$e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
         }
     }
 
@@ -296,6 +290,7 @@ DART;
     private function generateFlutterFormPage() {
         $path = base_path("mobile-gateway/lib/modules/dashboard/{$this->snakeName}_form_screen.dart");
         $vars = ""; $init = ""; $widgets = ""; $payload = ""; $loaders = ""; $hasImage = false;
+        $permPrefix = $this->pluralSnake;
 
         foreach ($this->meta['fields'] as $f) {
             $label = Str::headline($f);
@@ -358,9 +353,17 @@ class {$this->className}FormScreen extends StatefulWidget {
 
 class _{$this->className}FormState extends State<{$this->className}FormScreen> {
   final _formKey = GlobalKey<FormState>(); bool _isSaving = false; bool _isLoading = true;
+  bool _canDelete = false;
 $vars
-  @override void initState() { super.initState(); $init _loadData(); }
-  Future<void> _loadData() async { try { $loaders } catch(_) {} setState(()=>_isLoading=false); }
+  @override void initState() { super.initState(); _init(); }
+
+  Future<void> _init() async {
+    $init
+    _canDelete = await ApiService.hasPermission('delete_{$permPrefix}');
+    _loadData();
+  }
+
+  Future<void> _loadData() async { try { $loaders } catch(_) {} if(mounted) setState(()=>_isLoading=false); }
 
   void _showSearchablePicker(BuildContext context, String title, List<dynamic> options, Function(dynamic) onSelect) {
     showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) {
@@ -441,8 +444,13 @@ $vars
     backgroundColor: Colors.white,
     appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: Text(widget.item == null ? 'Shtim' : 'Edito', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 16)), iconTheme: const IconThemeData(color: Colors.black)),
     body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(20), child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 20),
-            SizedBox(width: double.infinity, height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.save_outlined, size: 20), SizedBox(width: 8), Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))]))),
-            if(widget.item != null) ...[ const SizedBox(height: 12), SizedBox(width: double.infinity, height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), foregroundColor: Colors.red, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _isSaving ? null : _delete, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.delete_outline, size: 20), SizedBox(width: 8), Text('FSHI REKORDIN', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))]))), ]
+            Row(children: [
+              Expanded(flex: 10, child: SizedBox(height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.save_outlined, size: 18), SizedBox(width: 8), Text('RUAJ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14))])))),
+              if(widget.item != null && _canDelete) ...[
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: SizedBox(height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), foregroundColor: Colors.red, elevation: 0, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _delete, child: const Icon(Icons.delete_outline, size: 24)))),
+              ]
+            ]),
       ]))),
   );
 }
