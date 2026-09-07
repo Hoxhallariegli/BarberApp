@@ -5,19 +5,14 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\CallLogController;
 use App\Http\Controllers\Api\SmsController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
 */
 
+// Public/System Routes
 Route::post('/calls/log', [CallLogController::class, 'log']);
 Route::post('/sms/register', [SmsController::class, 'register']);
 Route::post('/sms/status', [SmsController::class, 'statusUpdate']);
@@ -26,7 +21,6 @@ Route::post('/sms/debug', function(\Illuminate\Http\Request $request) {
     return response()->json(['success' => true]);
 });
 
-// Call Job Status update (referenced in mobile app main.dart)
 Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $request) {
     $job = \App\Models\CallJob::find($id);
     if ($job) {
@@ -40,10 +34,12 @@ Route::post('/call-jobs/{id}/status', function($id, \Illuminate\Http\Request $re
     return response()->json(['success' => false, 'message' => 'Job not found'], 404);
 });
 
-// Mobile Pro Dashboard Routes
+// Mobile Auth
 Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'login']);
 
+// Mobile PRO Dashboard & Resources
 Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
+    // Main Resources
     Route::apiResource('barbers', \App\Http\Controllers\Api\Mobile\BarberController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\Mobile\CustomerController::class);
     Route::apiResource('services', \App\Http\Controllers\Api\Mobile\ServiceController::class);
@@ -51,6 +47,7 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
     Route::apiResource('payments', \App\Http\Controllers\Api\Mobile\PaymentController::class);
     Route::apiResource('reminders', \App\Http\Controllers\Api\Mobile\ReminderController::class);
 
+    // Additional Dashboard Routes
     Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
     Route::get('/bookings/slots', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'getAvailableSlots']);

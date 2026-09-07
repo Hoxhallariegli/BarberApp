@@ -5,53 +5,23 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Payment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class PaymentController extends Controller
 {
     public function index()
     {
-        $query = Payment::query()->with(array (
+        $items = Payment::query()->with(array (
   0 => 'booking',
-));
-        $items = $query->latest()->paginate(50);
-        $jsonFields = array (
-);
-        
-        $items->getCollection()->transform(function($item) use ($jsonFields) {
-            foreach ($jsonFields as $f) {
-                $val = $item->getRawOriginal($f);
-                if (is_string($val) && str_starts_with($val, '{')) {
-                    $item->setAttribute("{$f}_raw", json_decode($val, true));
-                } elseif (is_array($val)) {
-                    $item->setAttribute("{$f}_raw", $val);
-                } else {
-                     $item->setAttribute("{$f}_raw", $item->getAttributes()[$f] ?? null);
-                }
-            }
-            return $item;
-        });
+))->latest()->paginate(50);
+        $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
-    }
-
-    protected function prepareData(Request $request)
-    {
-        $data = $request->all();
-        $jsonFields = array (
-);
-        foreach ($jsonFields as $f) {
-            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) {
-                $data[$f] = json_decode($data[$f], true);
-            }
-        }
-        return $data;
     }
 
     public function store(Request $request)
     {
         $data = $this->prepareData($request);
         $rules = method_exists(Payment::class, 'rules') ? Payment::rules() : [];
-        $validated = validator($data, $rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray())->validate();
+        $validated = validator($data, $rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -61,7 +31,7 @@ class PaymentController extends Controller
         }
 
         $item = Payment::create($validated);
-        return response()->json(['success' => true, 'data' => $item]);
+        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
     public function update(Request $request, $id)
@@ -69,7 +39,7 @@ class PaymentController extends Controller
         $item = Payment::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Payment::class, 'rules') ? Payment::rules($id) : [];
-        $validated = validator($data, $rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f) => [$f => 'required'])->toArray())->validate();
+        $validated = validator($data, $rules ?: collect((new Payment)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
 
         if ($request->hasFile('photo')) {
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
@@ -80,7 +50,7 @@ class PaymentController extends Controller
         }
 
         $item->update($validated);
-        return response()->json(['success' => true, 'data' => $item]);
+        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
     public function destroy($id)
@@ -89,5 +59,23 @@ class PaymentController extends Controller
         if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
         $item->delete();
         return response()->json(['success' => true]);
+    }
+
+    private function transformItem($item) {
+        foreach (array (
+) as $f) {
+            $val = $item->getRawOriginal($f);
+            $item->setAttribute(\"{$f}_raw\", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
+        }
+        return $item;
+    }
+
+    private function prepareData(Request $request) {
+        $data = $request->all();
+        foreach (array (
+) as $f) {
+            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) $data[$f] = json_decode($data[$f], true);
+        }
+        return $data;
     }
 }
