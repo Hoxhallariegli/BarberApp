@@ -15,10 +15,11 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me Success Messages dhe Delete Option';
+    protected $description = 'Gjeneron modul Mobile Pro me Spatie Permissions dhe UI të avancuar';
 
     private string $className;
     private string $snakeName;
+    private string $pluralSnake;
     private string $pluralKebab;
     private array $meta = [];
 
@@ -26,9 +27,10 @@ class MakeMobileProCommand extends Command
     {
         $this->className = Str::studly($this->argument('name'));
         $this->snakeName = Str::snake($this->className);
+        $this->pluralSnake = Str::plural($this->snakeName);
         $this->pluralKebab = Str::kebab(Str::plural($this->className));
 
-        $this->info("🚀 Duke gjeneruar modulin PREMIUM: {$this->className}");
+        $this->info("🚀 Duke gjeneruar modulin SECURE PREMIUM: {$this->className}");
 
         if (!$this->resolveMeta()) return self::FAILURE;
 
@@ -40,7 +42,7 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterFormPage();
 
             $this->callSilently('route:clear');
-            $this->info("✅ Moduli {$this->className} u rikrijua me Success Messages dhe Delete Option!");
+            $this->info("✅ Moduli {$this->className} u rikrijua me Spatie Security!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -90,6 +92,7 @@ class MakeMobileProCommand extends Command
         $path = app_path("Http/Controllers/Api/Mobile/{$this->className}Controller.php");
         $relWith = !empty($this->meta['relations']) ? "->with(" . var_export(collect($this->meta['relations'])->pluck('method')->toArray(), true) . ")" : "";
         $jsonFields = var_export($this->meta['json_fields'], true);
+        $permPrefix = $this->pluralSnake; // psh: barbers, services
 
         $stub = <<<PHP
 <?php
@@ -104,6 +107,8 @@ class {$this->className}Controller extends Controller
 {
     public function index()
     {
+        abort_if_cannot('view_{$permPrefix}');
+
         \$items = {$this->className}::query(){$relWith}->latest()->paginate(50);
         \$items->getCollection()->transform(fn(\$i) => \$this->transformItem(\$i));
         return response()->json(\$items);
@@ -111,6 +116,8 @@ class {$this->className}Controller extends Controller
 
     public function store(Request \$request)
     {
+        abort_if_cannot('add_{$permPrefix}');
+
         \$data = \$this->prepareData(\$request);
         \$rules = method_exists({$this->className}::class, 'rules') ? {$this->className}::rules() : [];
         \$validated = validator(\$data, \$rules ?: collect((new {$this->className})->getFillable())->mapWithKeys(fn(\$f)=>[\$f=>'required'])->toArray())->validate();
@@ -128,6 +135,8 @@ class {$this->className}Controller extends Controller
 
     public function update(Request \$request, \$id)
     {
+        abort_if_cannot('edit_{$permPrefix}');
+
         \$item = {$this->className}::findOrFail(\$id);
         \$data = \$this->prepareData(\$request);
         \$rules = method_exists({$this->className}::class, 'rules') ? {$this->className}::rules(\$id) : [];
@@ -147,10 +156,19 @@ class {$this->className}Controller extends Controller
 
     public function destroy(\$id)
     {
-        \$item = {$this->className}::findOrFail(\$id);
-        if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));
-        \$item->delete();
-        return response()->json(['success' => true]);
+        abort_if_cannot('delete_{$permPrefix}');
+
+        try {
+            \$item = {$this->className}::findOrFail(\$id);
+            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));
+            \$item->delete();
+            return response()->json(['success' => true]);
+        } catch (\Throwable \$e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ky rekord nuk mund të fshihet pasi është i lidhur me të dhëna të tjera në sistem.'
+            ], 400);
+        }
     }
 
     private function transformItem(\$item) {
@@ -203,7 +221,6 @@ PHP;
 
     private function generateFlutterListPage() {
         $path = base_path("mobile-gateway/lib/modules/dashboard/{$this->snakeName}_list_page.dart");
-
         $nameLogic = "item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? 'N/A') : (item['name'] ?? item['customer_name'] ?? 'ID: \${item['id']}')";
 
         $stub = <<<DART
@@ -474,6 +491,9 @@ $vars
         if (res.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('U fshi me sukses! ✅'), backgroundColor: Colors.green));
           Navigator.pop(context, true);
+        } else {
+          final msg = ApiService.extractErrorMessage(res);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
         }
       } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: \$e'))); }
       setState(() => _isSaving = false);

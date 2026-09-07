@@ -55,10 +55,17 @@ class PaymentController extends Controller
 
     public function destroy($id)
     {
-        $item = Payment::findOrFail($id);
-        if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
-        $item->delete();
-        return response()->json(['success' => true]);
+        try {
+            $item = Payment::findOrFail($id);
+            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
+            $item->delete();
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ky rekord nuk mund të fshihet pasi është i lidhur me të dhëna të tjera në sistem.'
+            ], 400);
+        }
     }
 
     private function transformItem($item) {
