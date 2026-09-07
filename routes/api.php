@@ -39,7 +39,13 @@ Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::c
 
 // Mobile PRO Dashboard & Resources
 Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
-    // Main Resources
+
+    // RRUGËT SPECIFIKE DUHET TË JENË TË PARAT
+    Route::get('/bookings/calendar', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'calendarStats']);
+    Route::get('/bookings/day-schedule', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'daySchedule']);
+    Route::get('/bookings/available-slots', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'availableSlots']);
+
+    // RESOURCES
     Route::apiResource('sms-templates', \App\Http\Controllers\Api\Mobile\SmsTemplateController::class);
     Route::apiResource('barbers', \App\Http\Controllers\Api\Mobile\BarberController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\Mobile\CustomerController::class);
@@ -48,15 +54,8 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
     Route::apiResource('payments', \App\Http\Controllers\Api\Mobile\PaymentController::class);
     Route::apiResource('reminders', \App\Http\Controllers\Api\Mobile\ReminderController::class);
 
-    // Additional Dashboard Routes
+    // DASHBOARD
     Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
-    Route::get('/bookings/calendar', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'calendarStats']);
-    Route::get('/bookings/day-schedule', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'daySchedule']);
-    Route::get('/bookings/available-slots', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'availableSlots']);
-
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
-
-    Route::get('/bookings/slots', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'getAvailableSlots']);
-    Route::post('/bookings/{id}/payment', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'completePayment']);
     Route::get('/sms-settings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsSettings']);
 });
