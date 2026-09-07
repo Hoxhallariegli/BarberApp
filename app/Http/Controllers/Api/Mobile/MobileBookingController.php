@@ -37,11 +37,13 @@ class MobileBookingController extends Controller
 
     public function daySchedule(Request $request)
     {
-        $date = $request->get('date', Carbon::today()->toDateString());
+        $dateStr = $request->get('date', Carbon::today()->toDateString());
+        $selectedDate = Carbon::parse($dateStr);
         $barberId = $request->get('barber_id');
+        $now = Carbon::now();
 
         $query = Booking::with(['customer', 'barber', 'service'])
-            ->whereDate('appointment_datetime', $date)
+            ->whereDate('appointment_datetime', $dateStr)
             ->where('status', '!=', 'cancelled')
             ->orderBy('appointment_datetime');
 
@@ -61,51 +63,44 @@ class MobileBookingController extends Controller
 
         if ($barberId && $barberId !== 'null' && $barberId !== '') {
             $barber = Barber::find($barberId);
-            $schedule = $barber->schedules()->where('day_of_week', Carbon::parse($date)->dayOfWeek)->first();
+            $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
 
             if (!$schedule || !$schedule->is_working) {
                 return response()->json(['data' => [], 'mode' => 'closed', 'message' => 'Berberi nuk punon.']);
             }
 
             $slots = [];
-            $start = Carbon::parse($date . ' ' . $schedule->start_time);
-            $end = Carbon::parse($date . ' ' . $schedule->end_time);
+            $start = Carbon::parse($dateStr . ' ' . $schedule->start_time);
+            $end = Carbon::parse($dateStr . ' ' . $schedule->end_time);
 
-            // Shkojme me hapa 15 minuta per precizion maksimal
             while ($start < $end) {
                 $currentTime = $start->format('H:i');
-
-                // 1. A ka nje rezervim qe nis fiks ne kete minute?
                 $exactBooking = $bookings->first(fn($b) => Carbon::parse($b->appointment_datetime)->format('H:i') === $currentTime);
 
-                // 2. A eshte kjo minute brenda kohezgjatjes se nje rezervimi tjeter?
                 $isOccupied = $bookings->contains(function($b) use ($start) {
                     $bStart = Carbon::parse($b->appointment_datetime);
                     $duration = $b->service ? ($b->service->duration_minutes ?: 30) : 30;
-                    $bEnd = (clone $bStart)->addMinutes($duration);
-                    return $start >= $bStart && $start < $bEnd;
+                    return $start >= $bStart && $start < $bStart->copy()->addMinutes($duration);
                 });
 
                 if ($exactBooking) {
-                    $slots[] = [
-                        'time' => $currentTime,
-                        'booking' => $exactBooking,
-                        'is_free' => false
-                    ];
-                    // Kapercejme kohen e sherbimit
+                    $slots[] = ['time' => $currentTime, 'booking' => $exactBooking, 'is_free' => false];
                     $duration = $exactBooking->service ? ($exactBooking->service->duration_minutes ?: 30) : 30;
                     $start->addMinutes($duration);
                     continue;
                 }
 
+                // KONTROLLI I KOHES: Vetem nese data eshte sot ose ne te ardhmen, dhe ora nuk ka kaluar
                 if (!$isOccupied) {
-                    // Shfaqim slot te lire vetem ne minutat 00 dhe 30 qe te mos behet lista shume e gjate
-                    if ($start->minute == 0 || $start->minute == 30) {
-                        $slots[] = [
-                            'time' => $currentTime,
-                            'booking' => null,
-                            'is_free' => true
-                        ];
+                    $canShowFree = false;
+                    if ($selectedDate->isFuture()) {
+                        $canShowFree = true;
+                    } elseif ($selectedDate->isToday()) {
+                        if ($start->gt($now)) $canShowFree = true;
+                    }
+
+                    if ($canShowFree && ($start->minute == 0 || $start->minute == 30)) {
+                        $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
                     }
                 }
 
@@ -114,7 +109,6 @@ class MobileBookingController extends Controller
             return response()->json(['data' => $slots, 'mode' => 'timeline']);
         }
 
-        // Per "Te Gjithe" kthejme vetem rezervimet aktive
         return response()->json([
             'data' => $bookings->map(fn($b) => [
                 'time' => Carbon::parse($b->appointment_datetime)->format('H:i'),
