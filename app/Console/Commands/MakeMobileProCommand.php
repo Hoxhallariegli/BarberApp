@@ -15,7 +15,7 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me DatePicker, Searchable Picker dhe Stylish UI';
+    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me Success Messages dhe Delete Option';
 
     private string $className;
     private string $snakeName;
@@ -40,7 +40,7 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterFormPage();
 
             $this->callSilently('route:clear');
-            $this->info("✅ Moduli {$this->className} u rikrijua me sukses!");
+            $this->info("✅ Moduli {$this->className} u rikrijua me Success Messages dhe Delete Option!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -460,13 +460,36 @@ $vars
     return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87));
   }
 
+  Future<void> _delete() async {
+    final confirm = await showDialog<bool>(
+      context: context, builder: (c) => AlertDialog(
+        title: const Text('Fshi të dhënat?'), content: const Text('A jeni të sigurt që dëshironi të fshini këtë rekord? Ky veprim nuk mund të kthehet.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('JO')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('PO, FSHIJE', style: TextStyle(color: Colors.red)))],
+      )
+    );
+    if (confirm == true) {
+      setState(() => _isSaving = true);
+      try {
+        final res = await ApiService.delete('/{$this->pluralKebab}/\${widget.item!['id']}');
+        if (res.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('U fshi me sukses! ✅'), backgroundColor: Colors.green));
+          Navigator.pop(context, true);
+        }
+      } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gabim: \$e'))); }
+      setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     final payload = <String, dynamic>{}; $payload
     try {
       final res = $saveCall;
-      if (res.statusCode >= 200 && res.statusCode < 300) { Navigator.pop(context, true); }
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Të dhënat u ruajtën me sukses! ✅'), backgroundColor: Colors.green));
+        Navigator.pop(context, true);
+      }
       else { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ApiService.extractErrorMessage(res)))); }
     } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: \$e'))); }
     setState(() => _isSaving = false);
@@ -478,7 +501,11 @@ $vars
     body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 40),
-            SizedBox(width: double.infinity, height: 60, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1))))
+            SizedBox(width: double.infinity, height: 60, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)))),
+            if(widget.item != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, height: 60, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _isSaving ? null : _delete, child: const Text('FSHI TË DHËNAT', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)))),
+            ]
       ])),
     ),
   );
