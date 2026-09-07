@@ -15,7 +15,7 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron modulin Mobile me UI Kompakte dhe Mbështetje Universale Modelësh';
+    protected $description = 'Gjeneron modulin Mobile me UI Kompakte, Butona Stylish dhe Mbështetje Universale';
 
     private string $className;
     private string $snakeName;
@@ -42,7 +42,7 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterFormPage();
 
             $this->callSilently('route:clear');
-            $this->info("✅ Moduli {$this->className} u përfundua me UI Kompakte!");
+            $this->info("✅ Moduli {$this->className} u përfundua!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -68,7 +68,7 @@ class MakeMobileProCommand extends Command
         }
 
         if (!$modelClass) {
-            $this->error("Modeli {$this->className} nuk u gjet në asnjë path të mundshëm.");
+            $this->error("Modeli {$this->className} nuk u gjet.");
             return false;
         }
 
@@ -230,7 +230,7 @@ PHP;
 
     private function generateFlutterListPage() {
         $path = base_path("mobile-gateway/lib/modules/dashboard/{$this->snakeName}_list_page.dart");
-        $nameLogic = "item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? 'N/A') : (item['name'] ?? item['customer_name'] ?? item['title'] ?? 'ID: \${item['id']}')";
+        $nameLogic = "item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? 'N/A') : (item['name'] ?? item['customer_name'] ?? item['title'] ?? item['type'] ?? 'ID: \${item['id']}')";
 
         $stub = <<<DART
 import 'package:flutter/material.dart';
@@ -257,12 +257,12 @@ class _{$this->className}ListPageState extends State<{$this->className}ListPage>
 
   @override Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
-    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: const Text('{$this->className}', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 20)), iconTheme: const IconThemeData(color: Colors.black)),
-    floatingActionButton: FloatingActionButton(backgroundColor: Colors.black, mini: true, onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const {$this->className}FormScreen())); if (res == true) _fetch(); }, child: const Icon(Icons.add, color: Colors.white)),
+    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: const Text('{$this->className}', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)), iconTheme: const IconThemeData(color: Colors.black)),
+    floatingActionButton: FloatingActionButton(backgroundColor: Colors.black, mini: true, onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const {$this->className}FormScreen())); if (res == true) _fetch(); }, child: const Icon(Icons.add, color: Colors.white, size: 20)),
     body: _loading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : RefreshIndicator(
       onRefresh: _fetch,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
@@ -270,17 +270,17 @@ class _{$this->className}ListPageState extends State<{$this->className}ListPage>
           String? photo = item['photo'];
 
           return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))]),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4, offset: const Offset(0, 2))]),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
               leading: Container(
-                width: 45, height: 45,
-                decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), image: photo != null ? DecorationImage(image: NetworkImage('\${ApiService.serverUrl}/\$photo'), fit: BoxFit.cover) : null),
-                child: photo == null ? Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54))) : null,
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10), image: photo != null ? DecorationImage(image: NetworkImage('\${ApiService.serverUrl}/\$photo'), fit: BoxFit.cover) : null),
+                child: photo == null ? Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black54))) : null,
               ),
-              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              subtitle: Text('ID: \${item['id']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              subtitle: Text('ID: \${item['id']}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
               onTap: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => {$this->className}FormScreen(item: item))); if (res == true) _fetch(); },
             ),
           );
@@ -301,39 +301,39 @@ DART;
             $label = Str::headline($f);
             if (Str::contains($f, ['photo', 'image'])) {
                 $hasImage = true; $vars .= "  String? _imagePath;\n";
-                $widgets .= "            _buildSectionTitle('$label'), const SizedBox(height: 8),
+                $widgets .= "            _buildSectionTitle('$label'), const SizedBox(height: 4),
             GestureDetector(
               onTap: () async { final p = await ImagePicker().pickImage(source: ImageSource.gallery); if(p != null) setState(()=>_imagePath = p.path); },
-              child: Container(height: 140, width: double.infinity, decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)), child: _imagePath != null ? ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.file(File(_imagePath!), fit: BoxFit.cover)) : (widget.item?['$f'] != null ? ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.network('\${ApiService.serverUrl}/\${widget.item!['$f']}', fit: BoxFit.cover)) : const Icon(Icons.add_a_photo_outlined, color: Colors.grey))),
-            ), const SizedBox(height: 16),\n";
+              child: Container(height: 120, width: double.infinity, decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)), child: _imagePath != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(File(_imagePath!), fit: BoxFit.cover)) : (widget.item?['$f'] != null ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network('\${ApiService.serverUrl}/\${widget.item!['$f']}', fit: BoxFit.cover)) : const Icon(Icons.add_a_photo_outlined, color: Colors.grey, size: 30))),
+            ), const SizedBox(height: 12),\n";
             } elseif (isset($this->meta['relations'][$f])) {
                 $rel = $this->meta['relations'][$f]; $safe = Str::studly($f);
                 $vars .= "  List<dynamic> _{$rel['method']}Options = []; dynamic _selected$safe; String _selected{$safe}Label = 'Zgjidh...';\n";
                 $init .= "    _selected$safe = widget.item?['$f'];\n";
-                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) { setState(() { _{$rel['method']}Options = jsonDecode(r$safe.body)['data']; if(_selected$safe != null) { try { var found = _{$rel['method']}Options.firstWhere((e) => e['id'] == _selected$safe); _selected{$safe}Label = found['name'] is Map ? (found['name']['sq'] ?? found['name']['en']) : (found['name'] ?? found['customer_name'] ?? 'ID: \${found['id']}'); } catch(_) {} } }); }\n";
-                $widgets .= "            _buildSectionTitle('$label'), const SizedBox(height: 8),
+                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) { setState(() { _{$rel['method']}Options = jsonDecode(r$safe.body)['data']; if(_selected$safe != null) { try { var found = _{$rel['method']}Options.firstWhere((e) => e['id'] == _selected$safe); _selected{$safe}Label = found['name'] is Map ? (found['name']['sq'] ?? found['name']['en']) : (found['name'] ?? found['customer_name'] ?? found['title'] ?? 'ID: \${found['id']}'); } catch(_) {} } }); }\n";
+                $widgets .= "            _buildSectionTitle('$label'), const SizedBox(height: 4),
             InkWell(
               onTap: () => _showSearchablePicker(context, '$label', _{$rel['method']}Options, (val) {
-                setState(() { _selected$safe = val['id']; _selected{$safe}Label = val['name'] is Map ? (val['name']['sq'] ?? val['name']['en']) : (val['name'] ?? val['customer_name'] ?? 'ID: \${val['id']}'); });
+                setState(() { _selected$safe = val['id']; _selected{$safe}Label = val['name'] is Map ? (val['name']['sq'] ?? val['name']['en']) : (val['name'] ?? val['customer_name'] ?? val['title'] ?? 'ID: \${val['id']}'); });
               }),
-              child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [const Icon(Icons.search, size: 18, color: Colors.grey), const SizedBox(width: 12), Expanded(child: Text(_selected{$safe}Label, style: const TextStyle(fontSize: 14))), const Icon(Icons.arrow_drop_down)])),
-            ), const SizedBox(height: 16),\n";
+              child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [const Icon(Icons.search, size: 16, color: Colors.grey), const SizedBox(width: 8), Expanded(child: Text(_selected{$safe}Label, style: const TextStyle(fontSize: 13))), const Icon(Icons.arrow_drop_down, size: 18)])),
+            ), const SizedBox(height: 12),\n";
                 $payload .= "    payload['$f'] = _selected$safe;\n";
             } elseif (Str::contains($f, ['_at', 'date', 'time'])) {
                 $vars .= "  final _{$f}C = TextEditingController();\n";
                 $init .= "    _{$f}C.text = widget.item?['$f']?.toString() ?? '';\n";
-                $widgets .= "            _buildDateTimePicker(_{$f}C, '$label'), const SizedBox(height: 16),\n";
+                $widgets .= "            _buildDateTimePicker(_{$f}C, '$label'), const SizedBox(height: 12),\n";
                 $payload .= "    payload['$f'] = _{$f}C.text;\n";
             } elseif (in_array($f, $this->meta['json_fields'])) {
                 $vars .= "  final _{$f}Sq = TextEditingController(); final _{$f}En = TextEditingController();\n";
                 $init .= "    final {$f}D = widget.item?['{$f}_raw']; if({$f}D != null) { _{$f}Sq.text = {$f}D['sq'] ?? ''; _{$f}En.text = {$f}D['en'] ?? ''; }\n";
-                $widgets .= "            _buildTextField(_{$f}Sq, '$label (AL)', Icons.language), const SizedBox(height: 12),\n";
-                $widgets .= "            _buildTextField(_{$f}En, '$label (EN)', Icons.translate), const SizedBox(height: 16),\n";
+                $widgets .= "            _buildTextField(_{$f}Sq, '$label (AL)', Icons.language), const SizedBox(height: 8),\n";
+                $widgets .= "            _buildTextField(_{$f}En, '$label (EN)', Icons.translate), const SizedBox(height: 12),\n";
                 $payload .= "    payload['$f'] = {'sq': _{$f}Sq.text, 'en': _{$f}En.text};\n";
             } else {
                 $vars .= "  final _{$f}C = TextEditingController();\n";
                 $init .= "    _{$f}C.text = widget.item?['$f']?.toString() ?? '';\n";
-                $widgets .= "            _buildTextField(_{$f}C, '$label', Icons.edit_note_outlined), const SizedBox(height: 16),\n";
+                $widgets .= "            _buildTextField(_{$f}C, '$label', Icons.edit_note_outlined), const SizedBox(height: 12),\n";
                 $payload .= "    payload['$f'] = _{$f}C.text;\n";
             }
         }
@@ -363,18 +363,18 @@ $vars
   Future<void> _loadData() async { try { $loaders } catch(_) {} setState(()=>_isLoading=false); }
 
   void _showSearchablePicker(BuildContext context, String title, List<dynamic> options, Function(dynamic) onSelect) {
-    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))), builder: (context) {
+    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) {
         List<dynamic> filtered = List.from(options);
         return StatefulBuilder(builder: (context, setModalState) {
-          return Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(24), child: Column(children: [
-              Text('Zgjidh \$title', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
-              TextField(decoration: InputDecoration(hintText: 'Kërko...', prefixIcon: const Icon(Icons.search, size: 20), filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)), onChanged: (q) { setModalState(() { filtered = options.where((e) { String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? ''); return name.toLowerCase().contains(q.toLowerCase()); }).toList(); }); }),
-              const SizedBox(height: 15),
+          return Container(height: MediaQuery.of(context).size.height * 0.6, padding: const EdgeInsets.all(20), child: Column(children: [
+              Text('Zgjidh \$title', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextField(decoration: InputDecoration(hintText: 'Kërko...', prefixIcon: const Icon(Icons.search, size: 18), filled: true, fillColor: Colors.grey[100], contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), onChanged: (q) { setModalState(() { filtered = options.where((e) { String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? item['type'] ?? ''); return name.toLowerCase().contains(q.toLowerCase()); }).toList(); }); }),
+              const SizedBox(height: 12),
               Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (c, i) {
                   var item = filtered[i];
-                  String name = item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? '') : (item['name'] ?? item['customer_name'] ?? 'ID: \${item['id']}');
-                  return ListTile(title: Text(name, style: const TextStyle(fontSize: 14)), leading: const Icon(Icons.check_circle_outline, size: 20), onTap: () { onSelect(item); Navigator.pop(context); });
+                  String name = item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? '') : (item['name'] ?? item['customer_name'] ?? item['type'] ?? 'ID: \${item['id']}');
+                  return ListTile(title: Text(name, style: const TextStyle(fontSize: 13)), dense: true, leading: const Icon(Icons.check_circle_outline, size: 18), onTap: () { onSelect(item); Navigator.pop(context); });
               }))
           ]));
         });
@@ -383,7 +383,7 @@ $vars
 
   Widget _buildDateTimePicker(TextEditingController controller, String label) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildSectionTitle(label), const SizedBox(height: 6),
+      _buildSectionTitle(label), const SizedBox(height: 4),
       InkWell(onTap: () async {
           DateTime? pDate = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
           if (pDate != null) {
@@ -394,19 +394,19 @@ $vars
             }
           }
         },
-        child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [const Icon(Icons.calendar_month_outlined, size: 18, color: Colors.black54), const SizedBox(width: 10), Expanded(child: Text(controller.text.isEmpty ? 'Zgjidh datën...' : DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(controller.text)), style: const TextStyle(fontSize: 14))), const Icon(Icons.edit_calendar_outlined, size: 18, color: Colors.grey)])),
+        child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [const Icon(Icons.calendar_month_outlined, size: 16, color: Colors.black54), const SizedBox(width: 8), Expanded(child: Text(controller.text.isEmpty ? 'Zgjidh...' : DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(controller.text)), style: const TextStyle(fontSize: 13))), const Icon(Icons.edit_calendar_outlined, size: 16, color: Colors.grey)])),
       )
     ]);
   }
 
   Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildSectionTitle(label), const SizedBox(height: 6),
-      TextFormField(controller: controller, style: const TextStyle(fontSize: 14), decoration: InputDecoration(prefixIcon: Icon(icon, size: 18, color: Colors.black54), filled: true, fillColor: Colors.grey[50], border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14))),
+      _buildSectionTitle(label), const SizedBox(height: 4),
+      TextFormField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(prefixIcon: Icon(icon, size: 16, color: Colors.black54), filled: true, fillColor: Colors.grey[50], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12))),
     ]);
   }
 
-  Widget _buildSectionTitle(String title) { return Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54)); }
+  Widget _buildSectionTitle(String title) { return Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)); }
 
   Future<void> _delete() async {
     final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Fshi?'), content: const Text('A jeni të sigurt?'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('JO')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('PO', style: TextStyle(color: Colors.red)))]));
@@ -435,10 +435,10 @@ $vars
 
   @override Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
-    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: Text(widget.item == null ? 'Shtim i ri' : 'Edito', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)), iconTheme: const IconThemeData(color: Colors.black)),
-    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(20), child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 20),
-            SizedBox(width: double.infinity, height: 55, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)))),
-            if(widget.item != null) ...[ const SizedBox(height: 12), SizedBox(width: double.infinity, height: 55, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: _isSaving ? null : _delete, child: const Text('FSHI', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)))), ]
+    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: Text(widget.item == null ? 'Shtim' : 'Edito', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 16)), iconTheme: const IconThemeData(color: Colors.black)),
+    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 12),
+            SizedBox(width: double.infinity, height: 45, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('RUAJ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)))),
+            if(widget.item != null) ...[ const SizedBox(height: 8), SizedBox(width: double.infinity, height: 45, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _delete, child: const Text('FSHI', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14)))), ]
       ]))),
   );
 }
