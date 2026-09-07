@@ -11,8 +11,8 @@ class PaymentController extends Controller
     public function index()
     {
         abort_if_cannot('view_payments');
-        // Marrim rezervimin bashke me klientin
-        $items = Payment::query()->with(['booking.customer'])->latest()->paginate(50);
+        // Marrim rezervimin bashke me klientin dhe sherbimin
+        $items = Payment::query()->with(['booking.customer', 'booking.service'])->latest()->paginate(50);
         return response()->json($items);
     }
 
@@ -33,7 +33,7 @@ class PaymentController extends Controller
         return response()->json(['success' => true, 'data' => $item]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         abort_if_cannot('delete_payments');
         $item = Payment::findOrFail($id);

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Booking;
+use App\Domain\BerberApp\Booking\Actions\CreateBookingAction;
+use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
@@ -11,51 +13,29 @@ class BookingController extends Controller
     public function index()
     {
         abort_if_cannot('view_bookings');
-        $items = Booking::query()->with(array (
-  0 => 'customer',
-  1 => 'barber',
-  2 => 'service',
-))->latest()->paginate(50);
-        $items->getCollection()->transform(fn($i) => $this->transformItem($i));
+        $items = Booking::query()->with(['customer', 'barber', 'service'])->latest()->paginate(50);
         return response()->json($items);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CreateBookingAction $action)
     {
         abort_if_cannot('add_bookings');
-        $data = $this->prepareData($request);
-        $rules = method_exists(Booking::class, 'rules') ? Booking::rules() : [];
-        $validated = validator($data, $rules ?: collect((new Booking)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
 
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
+        $data = $request->all();
+        // Sigurohemi qe te dhenat jane ne formatin qe pret DTO
+        $dto = BookingDTO::fromArray($data);
 
-        $item = Booking::create($validated);
-        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
+        $item = $action->execute($dto);
+
+        return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function update(Request $request, $id)
     {
         abort_if_cannot('edit_bookings');
         $item = Booking::findOrFail($id);
-        $data = $this->prepareData($request);
-        $rules = method_exists(Booking::class, 'rules') ? Booking::rules($id) : [];
-        $validated = validator($data, $rules ?: collect((new Booking)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item->update($validated);
-        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
+        $item->update($request->all());
+        return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function destroy($id)
@@ -63,29 +43,10 @@ class BookingController extends Controller
         abort_if_cannot('delete_bookings');
         try {
             $item = Booking::findOrFail($id);
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
         }
-    }
-
-    private function transformItem($item) {
-        foreach (array (
-) as $f) {
-            $val = $item->getRawOriginal($f);
-            $item->setAttribute("{$f}_raw", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
-        }
-        return $item;
-    }
-
-    private function prepareData(Request $request) {
-        $data = $request->all();
-        foreach (array (
-) as $f) {
-            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) $data[$f] = json_decode($data[$f], true);
-        }
-        return $data;
     }
 }
