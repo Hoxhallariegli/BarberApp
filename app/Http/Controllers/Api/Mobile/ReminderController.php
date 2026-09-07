@@ -10,6 +10,8 @@ class ReminderController extends Controller
 {
     public function index()
     {
+        abort_if_cannot('view_reminders');
+
         $items = Reminder::query()->with(array (
   0 => 'booking',
 ))->latest()->paginate(50);
@@ -19,6 +21,8 @@ class ReminderController extends Controller
 
     public function store(Request $request)
     {
+        abort_if_cannot('add_reminders');
+
         $data = $this->prepareData($request);
         $rules = method_exists(Reminder::class, 'rules') ? Reminder::rules() : [];
         $validated = validator($data, $rules ?: collect((new Reminder)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -36,6 +40,8 @@ class ReminderController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_if_cannot('edit_reminders');
+
         $item = Reminder::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Reminder::class, 'rules') ? Reminder::rules($id) : [];
@@ -55,6 +61,8 @@ class ReminderController extends Controller
 
     public function destroy($id)
     {
+        abort_if_cannot('delete_reminders');
+
         try {
             $item = Reminder::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));

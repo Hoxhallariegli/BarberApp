@@ -10,6 +10,8 @@ class BarberController extends Controller
 {
     public function index()
     {
+        abort_if_cannot('view_barbers');
+
         $items = Barber::query()->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
@@ -17,6 +19,8 @@ class BarberController extends Controller
 
     public function store(Request $request)
     {
+        abort_if_cannot('add_barbers');
+
         $data = $this->prepareData($request);
         $rules = method_exists(Barber::class, 'rules') ? Barber::rules() : [];
         $validated = validator($data, $rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -34,6 +38,8 @@ class BarberController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_if_cannot('edit_barbers');
+
         $item = Barber::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Barber::class, 'rules') ? Barber::rules($id) : [];
@@ -53,6 +59,8 @@ class BarberController extends Controller
 
     public function destroy($id)
     {
+        abort_if_cannot('delete_barbers');
+
         try {
             $item = Barber::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));

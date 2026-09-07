@@ -10,6 +10,8 @@ class ServiceController extends Controller
 {
     public function index()
     {
+        abort_if_cannot('view_services');
+
         $items = Service::query()->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
@@ -17,6 +19,8 @@ class ServiceController extends Controller
 
     public function store(Request $request)
     {
+        abort_if_cannot('add_services');
+
         $data = $this->prepareData($request);
         $rules = method_exists(Service::class, 'rules') ? Service::rules() : [];
         $validated = validator($data, $rules ?: collect((new Service)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -34,6 +38,8 @@ class ServiceController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_if_cannot('edit_services');
+
         $item = Service::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Service::class, 'rules') ? Service::rules($id) : [];
@@ -53,6 +59,8 @@ class ServiceController extends Controller
 
     public function destroy($id)
     {
+        abort_if_cannot('delete_services');
+
         try {
             $item = Service::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
