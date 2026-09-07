@@ -12,10 +12,10 @@ use Throwable;
 class MakeMobileProCommand extends Command
 {
     protected $signature = 'make:mobile-pro
-        {name : Emri i Modelit (psh. Service)}
-        {--force : Mbishkruaj skedarët ekzistues}';
+        {name : Emri i Modelit}
+        {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron një modul Mobile "Premium Pro" (Laravel API + Flutter UI)';
+    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me Stylish UI dhe Searchable Picker';
 
     private string $className;
     private string $snakeName;
@@ -28,7 +28,7 @@ class MakeMobileProCommand extends Command
         $this->snakeName = Str::snake($this->className);
         $this->pluralKebab = Str::kebab(Str::plural($this->className));
 
-        $this->info("🚀 Duke përpunuar modulin PRO: {$this->className}");
+        $this->info("🚀 Duke gjeneruar modulin PREMIUM: {$this->className}");
 
         if (!$this->resolveMeta()) return self::FAILURE;
 
@@ -39,11 +39,8 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterListPage();
             $this->generateFlutterFormPage();
 
-            // Pastrojmë cache-in e rrugëve
             $this->callSilently('route:clear');
-
-            $this->newLine();
-            $this->info("✅ Çdo gjë u përditësua me sukses për {$this->className}!");
+            $this->info("✅ Moduli {$this->className} u rikrijua me sukses!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -56,7 +53,7 @@ class MakeMobileProCommand extends Command
     {
         $modelClass = "App\\Models\\BerberApp\\{$this->className}";
         if (!class_exists($modelClass)) $modelClass = "App\\Models\\{$this->className}";
-        if (!class_exists($modelClass)) { $this->error("Modeli {$this->className} nuk ekziston."); return false; }
+        if (!class_exists($modelClass)) { $this->error("Modeli {$this->className} s'u gjet."); return false; }
 
         $model = new $modelClass();
         $this->meta = [
@@ -91,12 +88,9 @@ class MakeMobileProCommand extends Command
     private function generateController()
     {
         $path = app_path("Http/Controllers/Api/Mobile/{$this->className}Controller.php");
-        File::ensureDirectoryExists(dirname($path));
-
         $relWith = !empty($this->meta['relations']) ? "->with(" . var_export(collect($this->meta['relations'])->pluck('method')->toArray(), true) . ")" : "";
         $jsonFields = var_export($this->meta['json_fields'], true);
 
-        // FIX: Hequr backslash-et e panevojshme te setAttribute
         $stub = <<<PHP
 <?php
 
@@ -183,7 +177,6 @@ PHP;
         $path = base_path('routes/api.php');
         $content = File::get($path);
         $route = "    Route::apiResource('{$this->pluralKebab}', \\App\\Http\\Controllers\\Api\\Mobile\\{$this->className}Controller::class);";
-
         if (!Str::contains($content, "apiResource('{$this->pluralKebab}'")) {
             $marker = "Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {";
             $content = str_replace($marker, $marker . "\n" . $route, $content);
@@ -210,12 +203,14 @@ PHP;
 
     private function generateFlutterListPage() {
         $path = base_path("mobile-gateway/lib/modules/dashboard/{$this->snakeName}_list_page.dart");
-        $titleLogic = "item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? 'N/A') : (item['name'] ?? item['customer_name'] ?? 'ID: \${item['id']}')";
+
+        $nameLogic = "item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? 'N/A') : (item['name'] ?? item['customer_name'] ?? 'ID: \${item['id']}')";
 
         $stub = <<<DART
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import '{$this->snakeName}_form_screen.dart';
 
 class {$this->className}ListPage extends StatefulWidget {
@@ -235,25 +230,66 @@ class _{$this->className}ListPageState extends State<{$this->className}ListPage>
     setState(() => _loading = false);
   }
 
+  String _formatDate(String? date) {
+    if (date == null) return '';
+    try {
+      DateTime dt = DateTime.parse(date).toLocal();
+      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+    } catch (_) { return date; }
+  }
+
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('{$this->className} Management', style: TextStyle(fontWeight: FontWeight.w900))),
-    floatingActionButton: FloatingActionButton(backgroundColor: Colors.black, onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const {$this->className}FormScreen())); if (res == true) _fetch(); }, child: const Icon(Icons.add, color: Colors.white)),
+    backgroundColor: const Color(0xFFF8F9FA),
+    appBar: AppBar(
+      elevation: 0, backgroundColor: Colors.white,
+      title: const Text('{$this->className} List', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 24)),
+      iconTheme: const IconThemeData(color: Colors.black),
+    ),
+    floatingActionButton: FloatingActionButton(
+      backgroundColor: Colors.black, elevation: 4,
+      onPressed: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => const {$this->className}FormScreen())); if (res == true) _fetch(); },
+      child: const Icon(Icons.add, color: Colors.white, size: 30),
+    ),
     body: _loading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : RefreshIndicator(
       onRefresh: _fetch,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
-          return Card(
-            elevation: 0, margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade200)),
+          String name = $nameLogic;
+          String? photoPath = item['photo'];
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(24),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
             child: ListTile(
               contentPadding: const EdgeInsets.all(16),
-              leading: CircleAvatar(backgroundColor: Colors.black, child: const Icon(Icons.folder, color: Colors.white)),
-              title: Text($titleLogic, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('ID: \${item['id']} | \${item['updated_at'] ?? ""}'),
-              trailing: const Icon(Icons.edit_outlined, size: 20),
+              leading: Container(
+                width: 60, height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100], borderRadius: BorderRadius.circular(18),
+                  image: photoPath != null ? DecorationImage(image: NetworkImage('\${ApiService.serverUrl}/\$photoPath'), fit: BoxFit.cover) : null,
+                ),
+                child: photoPath == null ? Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20))) : null,
+              ),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                  const SizedBox(width: 5),
+                  Text(_formatDate(item['updated_at']), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ]),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.grey[50], shape: BoxShape.circle),
+                child: const Icon(Icons.edit_outlined, size: 20, color: Colors.black87),
+              ),
               onTap: () async { final res = await Navigator.push(context, MaterialPageRoute(builder: (c) => {$this->className}FormScreen(item: item))); if (res == true) _fetch(); },
             ),
           );
@@ -274,28 +310,44 @@ DART;
             $label = Str::headline($f);
             if (Str::contains($f, ['photo', 'image'])) {
                 $hasImage = true; $vars .= "  String? _imagePath;\n";
-                $widgets .= "            const Text('$label', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8),
+                $widgets .= "            _buildSectionTitle('$label'),
+            const SizedBox(height: 12),
             GestureDetector(
               onTap: () async { final p = await ImagePicker().pickImage(source: ImageSource.gallery); if(p != null) setState(()=>_imagePath = p.path); },
-              child: Container(height: 150, width: double.infinity, decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)), child: _imagePath != null ? Image.file(File(_imagePath!), fit: BoxFit.cover) : (widget.item?['$f'] != null ? Image.network('\${ApiService.serverUrl}/\${widget.item!['$f']}', fit: BoxFit.cover) : const Icon(Icons.add_a_photo))),
-            ), const SizedBox(height: 20),\n";
+              child: Container(
+                height: 180, width: double.infinity,
+                decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200)),
+                child: _imagePath != null ? ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.file(File(_imagePath!), fit: BoxFit.cover)) : (widget.item?['$f'] != null ? ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.network('\${ApiService.serverUrl}/\${widget.item!['$f']}', fit: BoxFit.cover)) : Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey[400]), const SizedBox(height: 8), Text('Shto Foto', style: TextStyle(color: Colors.grey[400]))])),
+              ),
+            ), const SizedBox(height: 24),\n";
             } elseif (isset($this->meta['relations'][$f])) {
                 $rel = $this->meta['relations'][$f]; $safe = Str::studly($f);
-                $vars .= "  List<dynamic> _{$rel['method']}Options = []; dynamic _selected$safe;\n";
+                $vars .= "  List<dynamic> _{$rel['method']}Options = []; dynamic _selected$safe; String _selected{$safe}Label = 'Zgjidh...';\n";
                 $init .= "    _selected$safe = widget.item?['$f'];\n";
-                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) setState(()=>_{$rel['method']}Options = jsonDecode(r$safe.body)['data']);\n";
-                $widgets .= "            DropdownButtonFormField(value: _selected$safe, decoration: const InputDecoration(labelText: '$label', border: OutlineInputBorder()), items: _{$rel['method']}Options.map((e)=>DropdownMenuItem(value: e['id'], child: Text(e['name']?.toString() ?? 'ID: \${e['id']}'))).toList(), onChanged: (v)=>setState(()=>_selected$safe=v)), const SizedBox(height: 20),\n";
+                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) { setState(() { _{$rel['method']}Options = jsonDecode(r$safe.body)['data']; if(_selected$safe != null) { try { var found = _{$rel['method']}Options.firstWhere((e) => e['id'] == _selected$safe); _selected{$safe}Label = found['name'] is Map ? (found['name']['sq'] ?? found['name']['en']) : (found['name'] ?? found['customer_name'] ?? 'ID: \${found['id']}'); } catch(_) {} } }); }\n";
+                $widgets .= "            _buildSectionTitle('$label'),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => _showSearchablePicker(context, '$label', _{$rel['method']}Options, (val) {
+                setState(() { _selected$safe = val['id']; _selected{$safe}Label = val['name'] is Map ? (val['name']['sq'] ?? val['name']['en']) : (val['name'] ?? val['customer_name'] ?? 'ID: \${val['id']}'); });
+              }),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+                child: Row(children: [const Icon(Icons.search, size: 20, color: Colors.grey), const SizedBox(width: 12), Expanded(child: Text(_selected{$safe}Label)), const Icon(Icons.arrow_drop_down)]),
+              ),
+            ), const SizedBox(height: 24),\n";
                 $payload .= "    payload['$f'] = _selected$safe;\n";
             } elseif (in_array($f, $this->meta['json_fields'])) {
                 $vars .= "  final _{$f}Sq = TextEditingController(); final _{$f}En = TextEditingController();\n";
                 $init .= "    final {$f}D = widget.item?['{$f}_raw']; if({$f}D != null) { _{$f}Sq.text = {$f}D['sq'] ?? ''; _{$f}En.text = {$f}D['en'] ?? ''; }\n";
-                $widgets .= "            TextFormField(controller: _{$f}Sq, decoration: const InputDecoration(labelText: '$label (AL)', border: OutlineInputBorder())), const SizedBox(height: 10),\n";
-                $widgets .= "            TextFormField(controller: _{$f}En, decoration: const InputDecoration(labelText: '$label (EN)', border: OutlineInputBorder())), const SizedBox(height: 20),\n";
+                $widgets .= "            _buildTextField(_{$f}Sq, '$label (AL)', Icons.language), const SizedBox(height: 16),\n";
+                $widgets .= "            _buildTextField(_{$f}En, '$label (EN)', Icons.translate), const SizedBox(height: 24),\n";
                 $payload .= "    payload['$f'] = {'sq': _{$f}Sq.text, 'en': _{$f}En.text};\n";
             } else {
                 $vars .= "  final _{$f}C = TextEditingController();\n";
                 $init .= "    _{$f}C.text = widget.item?['$f']?.toString() ?? '';\n";
-                $widgets .= "            TextFormField(controller: _{$f}C, decoration: const InputDecoration(labelText: '$label', border: OutlineInputBorder())), const SizedBox(height: 20),\n";
+                $widgets .= "            _buildTextField(_{$f}C, '$label', Icons.edit_note_outlined), const SizedBox(height: 24),\n";
                 $payload .= "    payload['$f'] = _{$f}C.text;\n";
             }
         }
@@ -323,6 +375,57 @@ $vars
   @override void initState() { super.initState(); $init _loadData(); }
   Future<void> _loadData() async { try { $loaders } catch(_) {} setState(()=>_isLoading=false); }
 
+  void _showSearchablePicker(BuildContext context, String title, List<dynamic> options, Function(dynamic) onSelect) {
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      builder: (context) {
+        List<dynamic> filtered = List.from(options);
+        return StatefulBuilder(builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(24),
+            child: Column(children: [
+              Text('Zgjidh \$title', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(hintText: 'Kërko...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
+                onChanged: (q) { setModalState(() { filtered = options.where((e) { String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? ''); return name.toLowerCase().contains(q.toLowerCase()); }).toList(); }); },
+              ),
+              const SizedBox(height: 20),
+              Expanded(child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (c, i) {
+                  var item = filtered[i];
+                  String name = item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? '') : (item['name'] ?? item['customer_name'] ?? 'ID: \${item['id']}');
+                  return ListTile(title: Text(name), leading: const Icon(Icons.check_circle_outline), onTap: () { onSelect(item); Navigator.pop(context); });
+                },
+              ))
+            ]),
+          );
+        });
+      }
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _buildSectionTitle(label), const SizedBox(height: 8),
+      TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 20, color: Colors.black54),
+          filled: true, fillColor: Colors.grey[50],
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        ),
+      )
+    ]);
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87));
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
@@ -336,11 +439,12 @@ $vars
   }
 
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.item == null ? 'Shto {$this->className}' : 'Edito {$this->className}')),
-    body: _isLoading ? const Center(child: CircularProgressIndicator()) : SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 30),
-            SizedBox(width: double.infinity, height: 55, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ', style: TextStyle(fontWeight: FontWeight.bold))))
+    backgroundColor: Colors.white,
+    appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: Text(widget.item == null ? 'Shtim i ri' : 'Edito të dhënat', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900)), iconTheme: const IconThemeData(color: Colors.black)),
+    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 40),
+            SizedBox(width: double.infinity, height: 60, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _isSaving ? null : _save, child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1))))
       ])),
     ),
   );
