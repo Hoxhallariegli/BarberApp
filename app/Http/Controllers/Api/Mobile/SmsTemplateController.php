@@ -10,6 +10,7 @@ class SmsTemplateController extends Controller
 {
     public function index()
     {
+        abort_if_cannot('view_sms_templates');
         $items = SmsTemplate::query()->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
@@ -17,6 +18,7 @@ class SmsTemplateController extends Controller
 
     public function store(Request $request)
     {
+        abort_if_cannot('add_sms_templates');
         $data = $this->prepareData($request);
         $rules = method_exists(SmsTemplate::class, 'rules') ? SmsTemplate::rules() : [];
         $validated = validator($data, $rules ?: collect((new SmsTemplate)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -34,6 +36,7 @@ class SmsTemplateController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_if_cannot('edit_sms_templates');
         $item = SmsTemplate::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(SmsTemplate::class, 'rules') ? SmsTemplate::rules($id) : [];
@@ -53,16 +56,14 @@ class SmsTemplateController extends Controller
 
     public function destroy($id)
     {
+        abort_if_cannot('delete_sms_templates');
         try {
             $item = SmsTemplate::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ky rekord nuk mund të fshihet pasi është i lidhur me të dhëna të tjera në sistem.'
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 

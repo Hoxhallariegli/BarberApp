@@ -11,7 +11,6 @@ class BookingController extends Controller
     public function index()
     {
         abort_if_cannot('view_bookings');
-
         $items = Booking::query()->with(array (
   0 => 'customer',
   1 => 'barber',
@@ -24,7 +23,6 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         abort_if_cannot('add_bookings');
-
         $data = $this->prepareData($request);
         $rules = method_exists(Booking::class, 'rules') ? Booking::rules() : [];
         $validated = validator($data, $rules ?: collect((new Booking)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -43,7 +41,6 @@ class BookingController extends Controller
     public function update(Request $request, $id)
     {
         abort_if_cannot('edit_bookings');
-
         $item = Booking::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Booking::class, 'rules') ? Booking::rules($id) : [];
@@ -64,17 +61,13 @@ class BookingController extends Controller
     public function destroy($id)
     {
         abort_if_cannot('delete_bookings');
-
         try {
             $item = Booking::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ky rekord nuk mund të fshihet pasi është i lidhur me të dhëna të tjera në sistem.'
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 

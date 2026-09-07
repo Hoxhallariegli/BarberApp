@@ -11,7 +11,6 @@ class CustomerController extends Controller
     public function index()
     {
         abort_if_cannot('view_customers');
-
         $items = Customer::query()->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
@@ -20,7 +19,6 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         abort_if_cannot('add_customers');
-
         $data = $this->prepareData($request);
         $rules = method_exists(Customer::class, 'rules') ? Customer::rules() : [];
         $validated = validator($data, $rules ?: collect((new Customer)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
@@ -39,7 +37,6 @@ class CustomerController extends Controller
     public function update(Request $request, $id)
     {
         abort_if_cannot('edit_customers');
-
         $item = Customer::findOrFail($id);
         $data = $this->prepareData($request);
         $rules = method_exists(Customer::class, 'rules') ? Customer::rules($id) : [];
@@ -60,17 +57,13 @@ class CustomerController extends Controller
     public function destroy($id)
     {
         abort_if_cannot('delete_customers');
-
         try {
             $item = Customer::findOrFail($id);
             if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ky rekord nuk mund të fshihet pasi është i lidhur me të dhëna të tjera në sistem.'
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 
