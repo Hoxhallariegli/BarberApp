@@ -10,9 +10,11 @@ use Carbon\Carbon;
 
 class MobileDashboardController extends Controller
 {
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        // Statistikat per sot
+        $user = $request->user();
+
+        // Statistikat
         $bookingsToday = Booking::whereDate('appointment_datetime', Carbon::today())->count();
         $totalCustomers = Customer::count();
 
@@ -21,27 +23,14 @@ class MobileDashboardController extends Controller
             'stats' => [
                 'bookings_today' => $bookingsToday,
                 'total_customers' => $totalCustomers,
-            ]
+            ],
+            // Përfshijmë permission-et e freskëta
+            'permissions' => $user->getAllPermissions()->pluck('name'),
         ]);
     }
 
-    public function getAvailableSlots(Request $request)
-    {
-        return response()->json(['data' => []]);
-    }
-
-    public function completePayment(Request $request, $id)
-    {
-        return response()->json(['success' => true]);
-    }
-
-    public function smsTemplates()
-    {
-        return response()->json(['data' => []]);
-    }
-
-    public function smsSettings()
-    {
-        return response()->json(['data' => []]);
-    }
+    public function getAvailableSlots(Request $request) { return response()->json(['data' => []]); }
+    public function completePayment(Request $request, $id) { return response()->json(['success' => true]); }
+    public function smsTemplates() { return response()->json(['data' => []]); }
+    public function smsSettings() { return response()->json(['data' => []]); }
 }
