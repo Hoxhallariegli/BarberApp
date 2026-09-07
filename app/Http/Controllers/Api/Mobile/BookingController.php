@@ -67,7 +67,7 @@ class BookingController extends Controller
         foreach (array (
 ) as $f) {
             $val = $item->getRawOriginal($f);
-            $item->setAttribute(\"{$f}_raw\", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
+            $item->setAttribute("{$f}_raw", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
         }
         return $item;
     }

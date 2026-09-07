@@ -39,13 +39,13 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterListPage();
             $this->generateFlutterFormPage();
 
-            // Pastrojmë cache-in e rrugëve që rregullimet e reja të njihen menjëherë
+            // Pastrojmë cache-in e rrugëve
             $this->callSilently('route:clear');
 
             $this->newLine();
             $this->info("✅ Çdo gjë u përditësua me sukses për {$this->className}!");
         } catch (Throwable $e) {
-            $this->error("❌ Gabim gjatë ekzekutimit: " . $e->getMessage());
+            $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
         }
 
@@ -96,6 +96,7 @@ class MakeMobileProCommand extends Command
         $relWith = !empty($this->meta['relations']) ? "->with(" . var_export(collect($this->meta['relations'])->pluck('method')->toArray(), true) . ")" : "";
         $jsonFields = var_export($this->meta['json_fields'], true);
 
+        // FIX: Hequr backslash-et e panevojshme te setAttribute
         $stub = <<<PHP
 <?php
 
@@ -161,7 +162,7 @@ class {$this->className}Controller extends Controller
     private function transformItem(\$item) {
         foreach ({$jsonFields} as \$f) {
             \$val = \$item->getRawOriginal(\$f);
-            \$item->setAttribute(\"{\$f}_raw\", is_string(\$val) && str_starts_with(\$val, '{') ? json_decode(\$val, true) : \$val);
+            \$item->setAttribute("{\$f}_raw", is_string(\$val) && str_starts_with(\$val, '{') ? json_decode(\$val, true) : \$val);
         }
         return \$item;
     }
@@ -176,7 +177,6 @@ class {$this->className}Controller extends Controller
 }
 PHP;
         File::put($path, $stub);
-        $this->line("  ✓ Controller: <info>Http/Controllers/Api/Mobile/{$this->className}Controller.php</info> (Updated)");
     }
 
     private function registerRoutes() {
@@ -188,9 +188,6 @@ PHP;
             $marker = "Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {";
             $content = str_replace($marker, $marker . "\n" . $route, $content);
             File::put($path, $content);
-            $this->line("  ✓ Route: <info>api/mobile/{$this->pluralKebab}</info> (Added)");
-        } else {
-            $this->line("  → Route: <info>api/mobile/{$this->pluralKebab}</info> (Exists)");
         }
     }
 
@@ -209,7 +206,6 @@ PHP;
         }
         $stub = "class {$this->className} {\n  final int? id;\n$fields\n  {$this->className}({this.id, " . collect($this->meta['fields'])->map(fn($f) => "this." . Str::camel($f))->implode(', ') . "});\n\n  factory {$this->className}.fromJson(Map<String, dynamic> json) => {$this->className}(\n      id: json['id'],\n$fromJson  );\n\n  Map<String, dynamic> toJson() => {\n      'id': id,\n$toJson  };\n}";
         File::put($path, $stub);
-        $this->line("  ✓ Dart Model: <info>lib/models/{$this->snakeName}.dart</info> (Updated)");
     }
 
     private function generateFlutterListPage() {
@@ -268,7 +264,6 @@ class _{$this->className}ListPageState extends State<{$this->className}ListPage>
 }
 DART;
         File::put($path, $stub);
-        $this->line("  ✓ List Page: <info>dashboard/{$this->snakeName}_list_page.dart</info> (Updated)");
     }
 
     private function generateFlutterFormPage() {
@@ -352,6 +347,5 @@ $vars
 }
 DART;
         File::put($path, $stub);
-        $this->line("  ✓ Form Page: <info>dashboard/{$this->snakeName}_form_screen.dart</info> (Updated)");
     }
 }
