@@ -15,7 +15,7 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron modulin Mobile me Spatie Permissions, Row Buttons dhe Compact UI';
+    protected $description = 'Gjeneron modulin Mobile Pro duke përdorur DTOs dhe Actions (DDD Architecture)';
 
     private string $className;
     private string $snakeName;
@@ -30,7 +30,7 @@ class MakeMobileProCommand extends Command
         $this->pluralSnake = Str::plural($this->snakeName);
         $this->pluralKebab = Str::kebab(Str::plural($this->className));
 
-        $this->info("🚀 Duke përpunuar modulin PREMIUM: {$this->className}");
+        $this->info("🚀 Duke përpunuar modulin PREMIUM DDD: {$this->className}");
 
         if (!$this->resolveMeta()) return self::FAILURE;
 
@@ -42,7 +42,7 @@ class MakeMobileProCommand extends Command
             $this->generateFlutterFormPage();
 
             $this->callSilently('route:clear');
-            $this->info("✅ Moduli {$this->className} u përfundua me sukses!");
+            $this->info("✅ Moduli {$this->className} u përfundua me DTO & Action Support!");
         } catch (Throwable $e) {
             $this->error("❌ Gabim: " . $e->getMessage());
             return self::FAILURE;
@@ -67,12 +67,22 @@ class MakeMobileProCommand extends Command
         if (!$modelClass) { $this->error("Modeli {$this->className} nuk u gjet."); return false; }
 
         $model = new $modelClass();
+
+        // Detektojme nese ka DTO dhe Action
+        $domainPath = "App\\Domain\\BerberApp\\{$this->className}";
+        $dtoClass = "{$domainPath}\\DTOs\\{$this->className}DTO";
+        $createActionClass = "{$domainPath}\\Actions\\Create{$this->className}Action";
+        $updateActionClass = "{$domainPath}\\Actions\\Update{$this->className}Action";
+
         $this->meta = [
             'class' => $this->className,
             'model_fqn' => $modelClass,
             'fields' => array_values(array_filter($model->getFillable(), fn($f) => !in_array($f, ['id', 'created_at', 'updated_at', 'deleted_at']))),
             'json_fields' => array_keys(array_filter($model->getCasts(), fn($c) => in_array($c, ['array', 'json', 'object', 'collection']))),
             'relations' => $this->discoverRelations($modelClass),
+            'dto_class' => class_exists($dtoClass) ? $dtoClass : null,
+            'create_action' => class_exists($createActionClass) ? $createActionClass : null,
+            'update_action' => class_exists($updateActionClass) ? $updateActionClass : null,
         ];
         return true;
     }
@@ -104,6 +114,61 @@ class MakeMobileProCommand extends Command
         $jsonFields = var_export($this->meta['json_fields'], true);
         $permPrefix = $this->pluralSnake;
 
+        // Logjika per DTO dhe Actions
+        $imports = "";
+        $storeLogic = "";
+        $updateLogic = "";
+
+        if ($this->meta['dto_class'] && $this->meta['create_action']) {
+            $imports .= "use {$this->meta['dto_class']};\n";
+            $imports .= "use {$this->meta['create_action']};\n";
+            $storeLogic = "
+    public function store(Request \$request, Create{$this->className}Action \$action)
+    {
+        abort_if_cannot('add_{$permPrefix}');
+        \$data = \$this->prepareData(\$request);
+        \$dto = {$this->className}DTO::fromArray(\$data);
+        \$item = \$action->execute(\$dto);
+        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
+    }";
+        } else {
+            $storeLogic = "
+    public function store(Request \$request)
+    {
+        abort_if_cannot('add_{$permPrefix}');
+        \$data = \$this->prepareData(\$request);
+        \$rules = method_exists({$this->className}::class, 'rules') ? {$this->className}::rules() : [];
+        \$validated = validator(\$data, \$rules ?: ['*'=>'nullable'])->validate();
+        \$item = {$this->className}::create(\$validated);
+        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
+    }";
+        }
+
+        if ($this->meta['dto_class'] && $this->meta['update_action']) {
+            if (!str_contains($imports, $this->meta['dto_class'])) $imports .= "use {$this->meta['dto_class']};\n";
+            $imports .= "use {$this->meta['update_action']};\n";
+            $updateLogic = "
+    public function update(Request \$request, \$id, Update{$this->className}Action \$action)
+    {
+        abort_if_cannot('edit_{$permPrefix}');
+        \$item = {$this->className}::findOrFail(\$id);
+        \$data = \$this->prepareData(\$request);
+        \$dto = {$this->className}DTO::fromArray(\$data);
+        \$item = \$action->execute(\$item, \$dto);
+        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
+    }";
+        } else {
+            $updateLogic = "
+    public function update(Request \$request, \$id)
+    {
+        abort_if_cannot('edit_{$permPrefix}');
+        \$item = {$this->className}::findOrFail(\$id);
+        \$data = \$this->prepareData(\$request);
+        \$item->update(\$data);
+        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
+    }";
+        }
+
         $stub = <<<PHP
 <?php
 
@@ -112,6 +177,7 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use {$this->meta['model_fqn']};
 use Illuminate\Http\Request;
+{$imports}
 
 class {$this->className}Controller extends Controller
 {
@@ -122,55 +188,18 @@ class {$this->className}Controller extends Controller
         \$items->getCollection()->transform(fn(\$i) => \$this->transformItem(\$i));
         return response()->json(\$items);
     }
-
-    public function store(Request \$request)
-    {
-        abort_if_cannot('add_{$permPrefix}');
-        \$data = \$this->prepareData(\$request);
-        \$rules = method_exists({$this->className}::class, 'rules') ? {$this->className}::rules() : [];
-        \$validated = validator(\$data, \$rules ?: collect((new {$this->className})->getFillable())->mapWithKeys(fn(\$f)=>[\$f=>'required'])->toArray())->validate();
-
-        if (\$request->hasFile('photo')) {
-            \$file = \$request->file('photo');
-            \$name = time() . '_' . \$file->getClientOriginalName();
-            \$file->move(public_path('uploads'), \$name);
-            \$validated['photo'] = 'uploads/' . \$name;
-        }
-
-        \$item = {$this->className}::create(\$validated);
-        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
-    }
-
-    public function update(Request \$request, \$id)
-    {
-        abort_if_cannot('edit_{$permPrefix}');
-        \$item = {$this->className}::findOrFail(\$id);
-        \$data = \$this->prepareData(\$request);
-        \$rules = method_exists({$this->className}::class, 'rules') ? {$this->className}::rules(\$id) : [];
-        \$validated = validator(\$data, \$rules ?: collect((new {$this->className})->getFillable())->mapWithKeys(fn(\$f)=>[\$f=>'required'])->toArray())->validate();
-
-        if (\$request->hasFile('photo')) {
-            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));
-            \$file = \$request->file('photo');
-            \$name = time() . '_' . \$file->getClientOriginalName();
-            \$file->move(public_path('uploads'), \$name);
-            \$validated['photo'] = 'uploads/' . \$name;
-        }
-
-        \$item->update(\$validated);
-        return response()->json(['success' => true, 'data' => \$this->transformItem(\$item)]);
-    }
+    {$storeLogic}
+    {$updateLogic}
 
     public function destroy(\$id)
     {
         abort_if_cannot('delete_{$permPrefix}');
         try {
             \$item = {$this->className}::findOrFail(\$id);
-            if (\$item->photo && file_exists(public_path(\$item->photo))) @unlink(public_path(\$item->photo));
             \$item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable \$e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 
@@ -409,7 +438,7 @@ $vars
   Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _buildSectionTitle(label), const SizedBox(height: 4),
-      TextFormField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(prefixIcon: Icon(icon, size: 16, color: Colors.black54), filled: true, fillColor: Colors.grey[50], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.color: Colors.grey.shade200)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12))),
+      TextFormField(controller: controller, style: const TextStyle(fontSize: 13), decoration: InputDecoration(prefixIcon: Icon(icon, size: 16, color: Colors.black54), filled: true, fillColor: Colors.grey[50], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12))),
     ]);
   }
 
