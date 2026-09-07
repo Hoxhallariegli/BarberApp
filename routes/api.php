@@ -39,8 +39,8 @@ Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::c
 
 // Mobile PRO Dashboard & Resources
 Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
-    Route::apiResource('sms-templates', \App\Http\Controllers\Api\Mobile\SmsTemplateController::class);
     // Main Resources
+    Route::apiResource('sms-templates', \App\Http\Controllers\Api\Mobile\SmsTemplateController::class);
     Route::apiResource('barbers', \App\Http\Controllers\Api\Mobile\BarberController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\Mobile\CustomerController::class);
     Route::apiResource('services', \App\Http\Controllers\Api\Mobile\ServiceController::class);
@@ -53,6 +53,5 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
     Route::get('/bookings/slots', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'getAvailableSlots']);
     Route::post('/bookings/{id}/payment', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'completePayment']);
-    Route::get('/sms-templates', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsTemplates']);
     Route::get('/sms-settings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsSettings']);
 });
