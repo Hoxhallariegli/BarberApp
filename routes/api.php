@@ -50,7 +50,10 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
 
     // Additional Dashboard Routes
     Route::post('/logout', [\App\Http\Controllers\Api\Mobile\AuthController::class, 'logout']);
+    Route::get('/bookings/calendar', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'calendarStats']);
+    Route::get('/bookings/day-schedule', [\App\Http\Controllers\Api\Mobile\MobileBookingController::class, 'daySchedule']);
     Route::get('/dashboard', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'dashboard']);
+
     Route::get('/bookings/slots', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'getAvailableSlots']);
     Route::post('/bookings/{id}/payment', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'completePayment']);
     Route::get('/sms-settings', [\App\Http\Controllers\Api\Mobile\MobileDashboardController::class, 'smsSettings']);
