@@ -15,7 +15,7 @@ class MakeMobileProCommand extends Command
         {name : Emri i Modelit}
         {--force : Mbishkruaj skedarët}';
 
-    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me Stylish UI dhe Searchable Picker';
+    protected $description = 'Gjeneron një modul Mobile "Premium Pro" me DatePicker, Searchable Picker dhe Stylish UI';
 
     private string $className;
     private string $snakeName;
@@ -338,6 +338,11 @@ DART;
               ),
             ), const SizedBox(height: 24),\n";
                 $payload .= "    payload['$f'] = _selected$safe;\n";
+            } elseif (Str::contains($f, ['_at', 'date', 'time'])) {
+                $vars .= "  final _{$f}C = TextEditingController();\n";
+                $init .= "    _{$f}C.text = widget.item?['$f']?.toString() ?? '';\n";
+                $widgets .= "            _buildDateTimePicker(_{$f}C, '$label'), const SizedBox(height: 24),\n";
+                $payload .= "    payload['$f'] = _{$f}C.text;\n";
             } elseif (in_array($f, $this->meta['json_fields'])) {
                 $vars .= "  final _{$f}Sq = TextEditingController(); final _{$f}En = TextEditingController();\n";
                 $init .= "    final {$f}D = widget.item?['{$f}_raw']; if({$f}D != null) { _{$f}Sq.text = {$f}D['sq'] ?? ''; _{$f}En.text = {$f}D['en'] ?? ''; }\n";
@@ -362,6 +367,7 @@ import '../../services/api_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class {$this->className}FormScreen extends StatefulWidget {
   final Map<String, dynamic>? item;
@@ -404,6 +410,34 @@ $vars
         });
       }
     );
+  }
+
+  Widget _buildDateTimePicker(TextEditingController controller, String label) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _buildSectionTitle(label), const SizedBox(height: 8),
+      InkWell(
+        onTap: () async {
+          DateTime? pDate = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
+          if (pDate != null) {
+            TimeOfDay? pTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+            if (pTime != null) {
+              final dt = DateTime(pDate.year, pDate.month, pDate.day, pTime.hour, pTime.minute);
+              setState(() => controller.text = dt.toIso8601String());
+            }
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+          child: Row(children: [
+            const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.black54),
+            const SizedBox(width: 12),
+            Expanded(child: Text(controller.text.isEmpty ? 'Zgjidh datën dhe orën...' : DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(controller.text)))),
+            const Icon(Icons.edit_calendar_outlined, size: 20, color: Colors.grey),
+          ]),
+        ),
+      )
+    ]);
   }
 
   Widget _buildTextField(TextEditingController controller, String label, IconData icon) {

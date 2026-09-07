@@ -39,6 +39,7 @@ Route::post('/mobile/login', [\App\Http\Controllers\Api\Mobile\AuthController::c
 
 // Mobile PRO Dashboard & Resources
 Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
+    Route::apiResource('sms-templates', \App\Http\Controllers\Api\Mobile\SmsTemplateController::class);
     // Main Resources
     Route::apiResource('barbers', \App\Http\Controllers\Api\Mobile\BarberController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\Mobile\CustomerController::class);
