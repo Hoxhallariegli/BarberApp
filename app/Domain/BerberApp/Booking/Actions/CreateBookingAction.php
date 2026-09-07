@@ -13,29 +13,39 @@ class CreateBookingAction
     {
         $data = $dto->toArray();
 
+        // Nese nuk kemi ID klienti por kemi telefon, krijojme klientin
         if (empty($data['customer_id']) && !empty($data['customer_phone'])) {
             $customer = \App\Models\BerberApp\Customer::firstOrCreate(
-                ['phone' => $data['customer_phone']],
+                ['phone' => $this->formatPhone($data['customer_phone'])],
                 ['name' => $data['customer_name'] ?? 'Klient']
             );
             $data['customer_id'] = $customer->id;
         }
 
+        // Sigurohemi qe checkbox-et (true/false) te jene booleane
+        $data['reminder_enabled'] = filter_var($data['reminder_enabled'], FILTER_VALIDATE_BOOLEAN);
+
         $item = Booking::create($data);
+
+        // Ngarkojme relacionet qe te kemi akses te telefonat/emrat
+        $item->load(['customer', 'barber', 'service']);
+
         AuditTrail::log($item, 'create', 'Bookings');
 
+        // Marrim telefonin saktesisht
         $phone = $item->customer_phone ?: ($item->customer ? $item->customer->phone : null);
+
         if ($phone) {
+            $phone = $this->formatPhone($phone);
             $smsService = app(\App\Services\SmsService::class);
             $time = Carbon::parse($item->appointment_datetime)->format('H:i');
             $date = Carbon::parse($item->appointment_datetime)->format('d/m');
 
-            // Use SMS Template with booking locale
             $template = \App\Models\SmsTemplate::getTemplate('booking_confirmation', $item->locale);
             if ($template) {
                 $message = str_replace(
                     ['{name}', '{time}', '{date}'],
-                    [$item->customer_name ?: 'Klient', $time, $date],
+                    [$item->customer_name ?: ($item->customer ? $item->customer->name : 'Klient'), $time, $date],
                     $template
                 );
             } else {
@@ -55,11 +65,23 @@ class CreateBookingAction
             \App\Models\BerberApp\Reminder::create([
                 'booking_id' => $item->id,
                 'reminder_type' => 'sms_and_push',
-                'send_at' => Carbon::parse($item->appointment_datetime)->subMinutes(30),
+                'send_at' => Carbon::parse($item->appointment_datetime)->subMinutes((int)$item->reminder_minutes),
                 'status' => 'pending',
             ]);
         }
 
         return $item;
+    }
+
+    private function formatPhone($phone)
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if (str_starts_with($phone, '0')) {
+            $phone = '355' . substr($phone, 1);
+        }
+        if (!str_starts_with($phone, '355')) {
+            $phone = '355' . $phone;
+        }
+        return '+' . $phone;
     }
 }
