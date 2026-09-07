@@ -65,8 +65,20 @@ class MobileBookingController extends Controller
             $barber = Barber::find($barberId);
             $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
 
+            // Edhe nese nuk ka orar pune, duam te shohim rezervimet nese ekzistojne
             if (!$schedule || !$schedule->is_working) {
-                return response()->json(['data' => [], 'mode' => 'closed', 'message' => 'Berberi nuk punon.']);
+                if ($bookings->isEmpty()) {
+                    return response()->json(['data' => [], 'mode' => 'closed', 'message' => 'Nuk ka orar pune të regjistruar.']);
+                }
+                // Shfaqim vetem listen e rezervimeve nese s'ka orar te mirefillte
+                return response()->json([
+                    'data' => $bookings->map(fn($b) => [
+                        'time' => Carbon::parse($b->appointment_datetime)->format('H:i'),
+                        'booking' => $b,
+                        'is_free' => false
+                    ]),
+                    'mode' => 'list'
+                ]);
             }
 
             $slots = [];
@@ -90,7 +102,6 @@ class MobileBookingController extends Controller
                     continue;
                 }
 
-                // KONTROLLI I KOHES: Vetem nese data eshte sot ose ne te ardhmen, dhe ora nuk ka kaluar
                 if (!$isOccupied) {
                     $canShowFree = false;
                     if ($selectedDate->isFuture()) {
@@ -103,7 +114,6 @@ class MobileBookingController extends Controller
                         $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
                     }
                 }
-
                 $start->addMinutes(15);
             }
             return response()->json(['data' => $slots, 'mode' => 'timeline']);
