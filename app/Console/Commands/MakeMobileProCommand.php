@@ -310,11 +310,11 @@ DART;
                 $rel = $this->meta['relations'][$f]; $safe = Str::studly($f);
                 $vars .= "  List<dynamic> _{$rel['method']}Options = []; dynamic _selected$safe; String _selected{$safe}Label = 'Zgjidh...';\n";
                 $init .= "    _selected$safe = widget.item?['$f'];\n";
-                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) { setState(() { _{$rel['method']}Options = jsonDecode(r$safe.body)['data']; if(_selected$safe != null) { try { var found = _{$rel['method']}Options.firstWhere((e) => e['id'] == _selected$safe); _selected{$safe}Label = found['name'] is Map ? (found['name']['sq'] ?? found['name']['en']) : (found['name'] ?? found['customer_name'] ?? found['title'] ?? 'ID: \${found['id']}'); } catch(_) {} } }); }\n";
+                $loaders .= "      final r$safe = await ApiService.get('/{$rel['endpoint']}'); if(r$safe.statusCode==200) { setState(() { _{$rel['method']}Options = jsonDecode(r$safe.body)['data']; if(_selected$safe != null) { try { var found = _{$rel['method']}Options.firstWhere((e) => e['id'] == _selected$safe); _selected{$safe}Label = found['name'] is Map ? (found['name']['sq'] ?? found['name']['en']) : (found['name'] ?? found['customer_name'] ?? found['title'] ?? found['type'] ?? 'ID: \${found['id']}'); } catch(_) {} } }); }\n";
                 $widgets .= "            _buildSectionTitle('$label'), const SizedBox(height: 4),
             InkWell(
               onTap: () => _showSearchablePicker(context, '$label', _{$rel['method']}Options, (val) {
-                setState(() { _selected$safe = val['id']; _selected{$safe}Label = val['name'] is Map ? (val['name']['sq'] ?? val['name']['en']) : (val['name'] ?? val['customer_name'] ?? val['title'] ?? 'ID: \${val['id']}'); });
+                setState(() { _selected$safe = val['id']; _selected{$safe}Label = val['name'] is Map ? (val['name']['sq'] ?? val['name']['en']) : (val['name'] ?? val['customer_name'] ?? val['title'] ?? val['type'] ?? 'ID: \${val['id']}'); });
               }),
               child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)), child: Row(children: [const Icon(Icons.search, size: 16, color: Colors.grey), const SizedBox(width: 8), Expanded(child: Text(_selected{$safe}Label, style: const TextStyle(fontSize: 13))), const Icon(Icons.arrow_drop_down, size: 18)])),
             ), const SizedBox(height: 12),\n";
@@ -369,12 +369,16 @@ $vars
           return Container(height: MediaQuery.of(context).size.height * 0.6, padding: const EdgeInsets.all(20), child: Column(children: [
               Text('Zgjidh \$title', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              TextField(decoration: InputDecoration(hintText: 'Kërko...', prefixIcon: const Icon(Icons.search, size: 18), filled: true, fillColor: Colors.grey[100], contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), onChanged: (q) { setModalState(() { filtered = options.where((e) { String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? item['type'] ?? ''); return name.toLowerCase().contains(q.toLowerCase()); }).toList(); }); }),
+              TextField(decoration: InputDecoration(hintText: 'Kërko...', prefixIcon: const Icon(Icons.search, size: 18), filled: true, fillColor: Colors.grey[100], contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+              onChanged: (q) { setModalState(() { filtered = options.where((e) {
+                String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? e['title'] ?? e['type'] ?? '');
+                return name.toLowerCase().contains(q.toLowerCase());
+              }).toList(); }); }),
               const SizedBox(height: 12),
               Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (c, i) {
-                  var item = filtered[i];
-                  String name = item['name'] is Map ? (item['name']['sq'] ?? item['name']['en'] ?? '') : (item['name'] ?? item['customer_name'] ?? item['type'] ?? 'ID: \${item['id']}');
-                  return ListTile(title: Text(name, style: const TextStyle(fontSize: 13)), dense: true, leading: const Icon(Icons.check_circle_outline, size: 18), onTap: () { onSelect(item); Navigator.pop(context); });
+                  var e = filtered[i];
+                  String name = e['name'] is Map ? (e['name']['sq'] ?? e['name']['en'] ?? '') : (e['name'] ?? e['customer_name'] ?? e['title'] ?? e['type'] ?? 'ID: \${e['id']}');
+                  return ListTile(title: Text(name, style: const TextStyle(fontSize: 13)), dense: true, leading: const Icon(Icons.check_circle_outline, size: 18), onTap: () { onSelect(e); Navigator.pop(context); });
               }))
           ]));
         });
@@ -436,9 +440,9 @@ $vars
   @override Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
     appBar: AppBar(elevation: 0, backgroundColor: Colors.white, title: Text(widget.item == null ? 'Shtim' : 'Edito', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 16)), iconTheme: const IconThemeData(color: Colors.black)),
-    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 12),
-            SizedBox(width: double.infinity, height: 45, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('RUAJ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)))),
-            if(widget.item != null) ...[ const SizedBox(height: 8), SizedBox(width: double.infinity, height: 45, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isSaving ? null : _delete, child: const Text('FSHI', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14)))), ]
+    body: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.black)) : SingleChildScrollView(padding: const EdgeInsets.all(20), child: Form(key: _formKey, child: Column(children: [ $widgets const SizedBox(height: 20),
+            SizedBox(width: double.infinity, height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.save_outlined, size: 20), SizedBox(width: 8), Text('RUAJ TË DHËNAT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))]))),
+            if(widget.item != null) ...[ const SizedBox(height: 12), SizedBox(width: double.infinity, height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), foregroundColor: Colors.red, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _isSaving ? null : _delete, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.delete_outline, size: 20), SizedBox(width: 8), Text('FSHI REKORDIN', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))]))), ]
       ]))),
   );
 }
