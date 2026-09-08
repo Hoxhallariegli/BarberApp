@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SmsTemplate;
 use Illuminate\Http\Request;
 
+
 class SmsTemplateController extends Controller
 {
     public function index()
@@ -15,42 +16,23 @@ class SmsTemplateController extends Controller
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-
+    
     public function store(Request $request)
     {
         abort_if_cannot('add_sms_templates');
         $data = $this->prepareData($request);
         $rules = method_exists(SmsTemplate::class, 'rules') ? SmsTemplate::rules() : [];
-        $validated = validator($data, $rules ?: collect((new SmsTemplate)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
+        $validated = validator($data, $rules ?: ['*'=>'nullable'])->validate();
         $item = SmsTemplate::create($validated);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-
+    
     public function update(Request $request, $id)
     {
         abort_if_cannot('edit_sms_templates');
         $item = SmsTemplate::findOrFail($id);
         $data = $this->prepareData($request);
-        $rules = method_exists(SmsTemplate::class, 'rules') ? SmsTemplate::rules($id) : [];
-        $validated = validator($data, $rules ?: collect((new SmsTemplate)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item->update($validated);
+        $item->update($data);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
@@ -59,11 +41,10 @@ class SmsTemplateController extends Controller
         abort_if_cannot('delete_sms_templates');
         try {
             $item = SmsTemplate::findOrFail($id);
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 

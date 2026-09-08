@@ -42,6 +42,7 @@ class MobileBookingController extends Controller
         $barberId = $request->get('barber_id');
         $now = Carbon::now();
 
+        // 1. Marrim te gjitha rezervimet per kete date dhe filter (nese ka)
         $query = Booking::with(['customer', 'barber', 'service'])
             ->whereDate('appointment_datetime', $dateStr)
             ->where('status', '!=', 'cancelled')
@@ -53,6 +54,7 @@ class MobileBookingController extends Controller
 
         $bookings = $query->get();
 
+        // Shtojme ticks (reminders)
         $bookings->transform(function($b) {
             $b->ticks = DB::table('ba_reminders')
                 ->where('booking_id', $b->id)
@@ -61,64 +63,79 @@ class MobileBookingController extends Controller
             return $b;
         });
 
+        // 2. Nese eshte perzgjedhur nje berber, krijojme timeline me orare pune
         if ($barberId && $barberId !== 'null' && $barberId !== '') {
             $barber = Barber::find($barberId);
+            if (!$barber) return response()->json(['data' => [], 'mode' => 'list']);
+
             $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
 
-            // Edhe nese nuk ka orar pune, duam te shohim rezervimet nese ekzistojne
-            if (!$schedule || !$schedule->is_working) {
-                if ($bookings->isEmpty()) {
-                    return response()->json(['data' => [], 'mode' => 'closed', 'message' => 'Nuk ka orar pune të regjistruar.']);
-                }
-                // Shfaqim vetem listen e rezervimeve nese s'ka orar te mirefillte
-                return response()->json([
-                    'data' => $bookings->map(fn($b) => [
-                        'time' => Carbon::parse($b->appointment_datetime)->format('H:i'),
-                        'booking' => $b,
-                        'is_free' => false
-                    ]),
-                    'mode' => 'list'
-                ]);
-            }
+            // Edhe nese nuk ka orar pune, tregojme rezervimet qe ka
+            $startStr = $schedule?->start_time ?: '08:00';
+            $endStr = $schedule?->end_time ?: '21:00';
+            $isWorking = $schedule?->is_working ?? true;
 
             $slots = [];
-            $start = Carbon::parse($dateStr . ' ' . $schedule->start_time);
-            $end = Carbon::parse($dateStr . ' ' . $schedule->end_time);
+            $start = Carbon::parse($dateStr . ' ' . $startStr);
+            $end = Carbon::parse($dateStr . ' ' . $endStr);
 
+            // Shkojme me hapa 15 minuta per precizion maksimal
             while ($start < $end) {
                 $currentTime = $start->format('H:i');
+
+                // A ka rezervim qe nis fiks ketu?
                 $exactBooking = $bookings->first(fn($b) => Carbon::parse($b->appointment_datetime)->format('H:i') === $currentTime);
 
+                // A eshte kjo minute e zene nga nje rezervim qe ka nisur me pare?
                 $isOccupied = $bookings->contains(function($b) use ($start) {
                     $bStart = Carbon::parse($b->appointment_datetime);
                     $duration = $b->service ? ($b->service->duration_minutes ?: 30) : 30;
-                    return $start >= $bStart && $start < $bStart->copy()->addMinutes($duration);
+                    $bEnd = (clone $bStart)->addMinutes($duration);
+                    return $start >= $bStart && $start < $bEnd;
                 });
 
                 if ($exactBooking) {
-                    $slots[] = ['time' => $currentTime, 'booking' => $exactBooking, 'is_free' => false];
+                    $slots[] = [
+                        'time' => $currentTime,
+                        'booking' => $exactBooking,
+                        'is_free' => false
+                    ];
                     $duration = $exactBooking->service ? ($exactBooking->service->duration_minutes ?: 30) : 30;
                     $start->addMinutes($duration);
                     continue;
                 }
 
-                if (!$isOccupied) {
-                    $canShowFree = false;
-                    if ($selectedDate->isFuture()) {
-                        $canShowFree = true;
-                    } elseif ($selectedDate->isToday()) {
-                        if ($start->gt($now)) $canShowFree = true;
-                    }
+                // Shfaqim slot te lire vetem nese berberi punon dhe koha nuk ka kaluar
+                if (!$isOccupied && $isWorking) {
+                    $isPast = $selectedDate->isToday() ? $start->lt($now) : $selectedDate->isPast();
 
-                    if ($canShowFree && ($start->minute == 0 || $start->minute == 30)) {
-                        $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
+                    if (!$isPast && ($start->minute == 0 || $start->minute == 30)) {
+                        $slots[] = [
+                            'time' => $currentTime,
+                            'booking' => null,
+                            'is_free' => true
+                        ];
                     }
                 }
+
                 $start->addMinutes(15);
             }
+
+            // Nese kemi rezervime jashte orarit zyrtar, i shtojme ne fund te listes
+            foreach ($bookings as $b) {
+                $bTime = Carbon::parse($b->appointment_datetime)->format('H:i');
+                if (!collect($slots)->contains('time', $bTime)) {
+                    $slots[] = ['time' => $bTime, 'booking' => $b, 'is_free' => false];
+                }
+            }
+
+            // Ri-renditim slotet sipas kohes
+            usort($slots, fn($a, $b) => strcmp($a['time'], $b['time']));
+
             return response()->json(['data' => $slots, 'mode' => 'timeline']);
         }
 
+        // 3. Per "Te Gjithe", kthejme listen e thjeshte te rezervimeve
         return response()->json([
             'data' => $bookings->map(fn($b) => [
                 'time' => Carbon::parse($b->appointment_datetime)->format('H:i'),

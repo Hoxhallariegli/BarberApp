@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Customer;
 use Illuminate\Http\Request;
+use App\Domain\BerberApp\Customer\DTOs\CustomerDTO;
+use App\Domain\BerberApp\Customer\Actions\CreateCustomerAction;
+use App\Domain\BerberApp\Customer\Actions\UpdateCustomerAction;
+
 
 class CustomerController extends Controller
 {
@@ -15,42 +19,23 @@ class CustomerController extends Controller
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-
-    public function store(Request $request)
+    
+    public function store(Request $request, CreateCustomerAction $action)
     {
         abort_if_cannot('add_customers');
         $data = $this->prepareData($request);
-        $rules = method_exists(Customer::class, 'rules') ? Customer::rules() : [];
-        $validated = validator($data, $rules ?: collect((new Customer)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item = Customer::create($validated);
+        $dto = CustomerDTO::fromArray($data);
+        $item = $action->execute($dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-
-    public function update(Request $request, $id)
+    
+    public function update(Request $request, $id, UpdateCustomerAction $action)
     {
         abort_if_cannot('edit_customers');
         $item = Customer::findOrFail($id);
         $data = $this->prepareData($request);
-        $rules = method_exists(Customer::class, 'rules') ? Customer::rules($id) : [];
-        $validated = validator($data, $rules ?: collect((new Customer)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item->update($validated);
+        $dto = CustomerDTO::fromArray($data);
+        $item = $action->execute($item, $dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
@@ -59,11 +44,10 @@ class CustomerController extends Controller
         abort_if_cannot('delete_customers');
         try {
             $item = Customer::findOrFail($id);
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 

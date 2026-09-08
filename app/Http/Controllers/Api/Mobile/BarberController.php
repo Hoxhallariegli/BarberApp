@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Barber;
 use Illuminate\Http\Request;
+use App\Domain\BerberApp\Barber\DTOs\BarberDTO;
+use App\Domain\BerberApp\Barber\Actions\CreateBarberAction;
+use App\Domain\BerberApp\Barber\Actions\UpdateBarberAction;
+
 
 class BarberController extends Controller
 {
@@ -15,42 +19,23 @@ class BarberController extends Controller
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-
-    public function store(Request $request)
+    
+    public function store(Request $request, CreateBarberAction $action)
     {
         abort_if_cannot('add_barbers');
         $data = $this->prepareData($request);
-        $rules = method_exists(Barber::class, 'rules') ? Barber::rules() : [];
-        $validated = validator($data, $rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item = Barber::create($validated);
+        $dto = BarberDTO::fromArray($data);
+        $item = $action->execute($dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-
-    public function update(Request $request, $id)
+    
+    public function update(Request $request, $id, UpdateBarberAction $action)
     {
         abort_if_cannot('edit_barbers');
         $item = Barber::findOrFail($id);
         $data = $this->prepareData($request);
-        $rules = method_exists(Barber::class, 'rules') ? Barber::rules($id) : [];
-        $validated = validator($data, $rules ?: collect((new Barber)->getFillable())->mapWithKeys(fn($f)=>[$f=>'required'])->toArray())->validate();
-
-        if ($request->hasFile('photo')) {
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
-            $file = $request->file('photo');
-            $name = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads'), $name);
-            $validated['photo'] = 'uploads/' . $name;
-        }
-
-        $item->update($validated);
+        $dto = BarberDTO::fromArray($data);
+        $item = $action->execute($item, $dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
@@ -59,11 +44,10 @@ class BarberController extends Controller
         abort_if_cannot('delete_barbers');
         try {
             $item = Barber::findOrFail($id);
-            if ($item->photo && file_exists(public_path($item->photo))) @unlink(public_path($item->photo));
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
     }
 

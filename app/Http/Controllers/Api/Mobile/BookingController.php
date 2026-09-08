@@ -4,38 +4,43 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Booking;
-use App\Domain\BerberApp\Booking\Actions\CreateBookingAction;
-use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use Illuminate\Http\Request;
+use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
+use App\Domain\BerberApp\Booking\Actions\CreateBookingAction;
+use App\Domain\BerberApp\Booking\Actions\UpdateBookingAction;
+
 
 class BookingController extends Controller
 {
     public function index()
     {
         abort_if_cannot('view_bookings');
-        $items = Booking::query()->with(['customer', 'barber', 'service'])->latest()->paginate(50);
+        $items = Booking::query()->with(array (
+  0 => 'customer',
+  1 => 'barber',
+  2 => 'service',
+))->latest()->paginate(50);
+        $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-
+    
     public function store(Request $request, CreateBookingAction $action)
     {
         abort_if_cannot('add_bookings');
-
-        $data = $request->all();
-        // Sigurohemi qe te dhenat jane ne formatin qe pret DTO
+        $data = $this->prepareData($request);
         $dto = BookingDTO::fromArray($data);
-
         $item = $action->execute($dto);
-
-        return response()->json(['success' => true, 'data' => $item]);
+        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-
-    public function update(Request $request, $id)
+    
+    public function update(Request $request, $id, UpdateBookingAction $action)
     {
         abort_if_cannot('edit_bookings');
         $item = Booking::findOrFail($id);
-        $item->update($request->all());
-        return response()->json(['success' => true, 'data' => $item]);
+        $data = $this->prepareData($request);
+        $dto = BookingDTO::fromArray($data);
+        $item = $action->execute($item, $dto);
+        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
 
     public function destroy($id)
@@ -46,7 +51,25 @@ class BookingController extends Controller
             $item->delete();
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord nuk mund të fshihet.'], 400);
+            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
         }
+    }
+
+    private function transformItem($item) {
+        foreach (array (
+) as $f) {
+            $val = $item->getRawOriginal($f);
+            $item->setAttribute("{$f}_raw", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
+        }
+        return $item;
+    }
+
+    private function prepareData(Request $request) {
+        $data = $request->all();
+        foreach (array (
+) as $f) {
+            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) $data[$f] = json_decode($data[$f], true);
+        }
+        return $data;
     }
 }
