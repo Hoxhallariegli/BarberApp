@@ -54,44 +54,57 @@ class MobileBookingController extends Controller
 
         $bookings = $query->get();
 
+        // Shto oren lokale si string ne cdo rezervim per te shmangur gabimet e zonave kohore ne Flutter
+        $bookings->each(function($b) {
+            $b->local_time = Carbon::parse($b->appointment_datetime)->format('H:i');
+        });
+
         if ($barberId && $barberId !== 'null' && $barberId !== '') {
             $barber = Barber::find($barberId);
             if (!$barber) return response()->json(['data' => [], 'mode' => 'list']);
 
             $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
-            $startStr = $schedule?->start_time ?: '08:00';
-            $endStr = $schedule?->end_time ?: '21:00';
-            $isWorking = $schedule?->is_working ?? true;
+
+            if (!$schedule || !$schedule->is_working) {
+                return response()->json(['data' => [], 'mode' => 'timeline', 'message' => 'Berberi është pushim sot.']);
+            }
+
+            $startStr = $schedule->start_time ?: '09:00';
+            $endStr = $schedule->end_time ?: '21:00';
 
             $slots = [];
             $start = Carbon::parse($dateStr . ' ' . $startStr);
             $end = Carbon::parse($dateStr . ' ' . $endStr);
 
-            if (!$isWorking) return response()->json(['data' => [], 'mode' => 'timeline', 'message' => 'Pushim']);
-
             while ($start < $end) {
                 $currentTime = $start->format('H:i');
 
-                $bookingAtThisTime = $bookings->first(function($b) use ($start) {
-                    $bStart = Carbon::parse($b->appointment_datetime);
-                    $duration = $b->services->isNotEmpty() ? $b->services->sum('duration_minutes') : ($b->service ? ($b->service->duration_minutes ?: 30) : 30);
-                    $bEnd = (clone $bStart)->addMinutes($duration);
-                    return $start >= $bStart && $start < $bEnd;
+                $bookingAtThisTime = $bookings->first(function($b) use ($currentTime) {
+                   return $b->local_time === $currentTime;
                 });
 
                 if ($bookingAtThisTime) {
-                    if (Carbon::parse($bookingAtThisTime->appointment_datetime)->format('H:i') === $currentTime) {
-                        $slots[] = ['time' => $currentTime, 'booking' => $bookingAtThisTime, 'is_free' => false];
-                    }
+                    $slots[] = ['time' => $currentTime, 'booking' => $bookingAtThisTime, 'is_free' => false];
+                    $duration = $bookingAtThisTime->services->isNotEmpty()
+                        ? $bookingAtThisTime->services->sum('duration_minutes')
+                        : ($bookingAtThisTime->service ? ($bookingAtThisTime->service->duration_minutes ?: 30) : 30);
+                    $start->addMinutes($duration);
                 } else {
                     $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
+                    $start->addMinutes(15);
                 }
-                $start->addMinutes(15);
             }
             return response()->json(['data' => $slots, 'mode' => 'timeline']);
         }
 
-        return response()->json(['data' => $bookings->map(fn($b) => ['time' => Carbon::parse($b->appointment_datetime)->format('H:i'), 'booking' => $b, 'is_free' => false]), 'mode' => 'list']);
+        return response()->json([
+            'data' => $bookings->map(fn($b) => [
+                'time' => $b->local_time,
+                'booking' => $b,
+                'is_free' => false
+            ]),
+            'mode' => 'list'
+        ]);
     }
 
     public function availableSlots(Request $request)

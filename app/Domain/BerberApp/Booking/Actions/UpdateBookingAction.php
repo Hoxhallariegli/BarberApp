@@ -5,12 +5,14 @@ namespace App\Domain\BerberApp\Booking\Actions;
 use App\Models\BerberApp\Booking;
 use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use App\Models\AuditTrail;
+use Carbon\Carbon;
 
 class UpdateBookingAction
 {
     public function execute(Booking $model, BookingDTO $dto): Booking
     {
         $oldStatus = $model->status;
+        $oldTime = $model->appointment_datetime;
         $data = $dto->toArray();
 
         // Convert service_ids to clean integer array
@@ -26,6 +28,15 @@ class UpdateBookingAction
 
         // Sync services to pivot table
         $model->services()->sync($serviceIds);
+
+        // Update Reminder if time has changed
+        if ($oldTime != $model->appointment_datetime) {
+            $reminder = $model->reminders()->where('status', 'pending')->first();
+            if ($reminder) {
+                $newSendAt = Carbon::parse($model->appointment_datetime)->subMinutes((int)$model->reminder_minutes);
+                $reminder->update(['send_at' => $newSendAt]);
+            }
+        }
 
         // Generate payment if status changed to completed
         if ($oldStatus !== 'completed' && $model->status === 'completed') {
