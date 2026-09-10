@@ -48,7 +48,8 @@ class CreateBookingAction
         // Marrim telefonin saktesisht
         $phone = $item->customer_phone ?: ($item->customer ? $item->customer->phone : null);
 
-        if ($phone) {
+        // ZGJIDHJA: Dergojme SMS konfirmimi VETEM nese reminder_enabled eshte True
+        if ($phone && $item->reminder_enabled) {
             $phone = $this->formatPhone($phone);
             $smsService = app(\App\Services\SmsService::class);
             $time = Carbon::parse($item->appointment_datetime)->format('H:i');
