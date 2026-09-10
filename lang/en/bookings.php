@@ -29,4 +29,13 @@ return [
   'Total Price' => 'Total Price',
   'Status' => 'Status',
   'Notes' => 'Notes',
+  'Available Slots' => 'Available Slots',
+  'Date' => 'Date',
+  'Services' => 'Services',
+  'Select services' => 'Select services...',
+  'Add to list' => 'Add to List',
+  'No services selected' => 'No services selected',
+  'Select barber and services to see slots' => 'Select Barber, add at least one service and select date to see available slots.',
+  'Total' => 'Total',
+  'No available slots for this date.' => 'No available slots for this date.',
 ];

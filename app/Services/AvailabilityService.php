@@ -12,7 +12,7 @@ class AvailabilityService
     /**
      * Get available slots for a barber on a specific date for a specific service duration.
      */
-    public function getAvailableSlots(Barber $barber, Carbon $date, int $durationMinutes = 30)
+    public function getAvailableSlots(Barber $barber, Carbon $date, int $durationMinutes = 30, $excludeId = null)
     {
         $dayOfWeek = $date->dayOfWeek;
         $schedule = $barber->schedules()->where('day_of_week', $dayOfWeek)->where('is_working', true)->first();
@@ -47,11 +47,16 @@ class AvailabilityService
         $absences = $barber->absences()->whereDate('date', $date->toDateString())->get();
 
         // Get existing bookings for this day
-        $bookings = Booking::where('barber_id', $barber->id)
+        $query = Booking::where('barber_id', $barber->id)
             ->whereDate('appointment_datetime', $date->toDateString())
             ->where('status', '!=', 'cancelled')
-            ->with('service')
-            ->get();
+            ->with(['service', 'services']);
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        $bookings = $query->get();
 
         for ($time = $start->copy(); $time->copy()->addMinutes($durationMinutes)->lte($end); $time->add($interval)) {
             $slotStart = $time->copy();
@@ -95,8 +100,8 @@ class AvailabilityService
         // 3. Check Existing Bookings
         foreach ($bookings as $booking) {
             $bStart = $booking->appointment_datetime;
-            $bDuration = $booking->service ? $booking->service->duration_minutes : 30;
-            $bEnd = $bStart->copy()->addMinutes($bDuration);
+            $bDuration = $booking->services->sum('duration_minutes') ?: ($booking->service ? $booking->service->duration_minutes : 30);
+            $bEnd = (clone $bStart)->addMinutes($bDuration);
 
             if ($slotStart->lt($bEnd) && $slotEnd->gt($bStart)) {
                 return false;

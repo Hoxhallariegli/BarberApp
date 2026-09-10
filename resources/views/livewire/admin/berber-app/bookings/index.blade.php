@@ -43,6 +43,7 @@
 <x-table.th name="service_id" :label="__('bookings.Service Id')" :$sortField :$sortAsc :sortable="in_array('service_id', $sortableFields)" />
 <x-table.th name="appointment_datetime" :label="__('bookings.Appointment Datetime')" :$sortField :$sortAsc :sortable="in_array('appointment_datetime', $sortableFields)" />
 <th class="px-6 py-4 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('bookings.Status') }}</th>
+<th class="px-6 py-4 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('Total') }}</th>
 <th class="px-6 py-4 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">{{ __('bookings.Action') }}</th></tr></thead>
                 <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">@forelse($items as $item) <livewire:admin.berber-app.bookings.row :$item :key="$item->id" /> @empty <tr><td colspan="100" class="px-6 py-10 text-center text-sm text-gray-400">{{ __('bookings.No records found.') }}</td></tr> @endforelse</tbody>
             </table>

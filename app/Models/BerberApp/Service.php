@@ -9,7 +9,7 @@ class Service extends Model
 {
     use HasFactory;
     protected $table = 'ba_services';
-    protected $fillable = ['name', 'price', 'duration_minutes'];
+    protected $fillable = ['name', 'price', 'duration_minutes', 'image', 'active'];
     protected function casts(): array { return [
             'price' => 'decimal:2',
             'name' => 'array',
@@ -22,10 +22,16 @@ class Service extends Model
         ]; }
     public static function sortable(): array { return ['id', 'name', 'price', 'duration_minutes']; }
 
-    public function getNameAttribute($value)
+    public function getTranslatedNameAttribute()
     {
-        $names = json_decode($value, true);
-        if (!is_array($names)) return $value;
+        $value = $this->getRawOriginal('name');
+        $names = is_array($value) ? $value : json_decode($value, true);
+
+        if (is_string($names)) {
+            $names = json_decode($names, true);
+        }
+
+        if (!is_array($names)) return (string) $value;
 
         $locale = app()->getLocale();
         return $names[$locale] ?? $names['en'] ?? array_values($names)[0] ?? '';

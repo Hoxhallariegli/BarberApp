@@ -15,15 +15,11 @@ class BookingController extends Controller
     public function index()
     {
         abort_if_cannot('view_bookings');
-        $items = Booking::query()->with(array (
-  0 => 'customer',
-  1 => 'barber',
-  2 => 'service',
-))->latest()->paginate(50);
+        $items = Booking::query()->with(['customer', 'barber', 'service', 'services'])->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-    
+
     public function store(Request $request, CreateBookingAction $action)
     {
         abort_if_cannot('add_bookings');
@@ -32,7 +28,7 @@ class BookingController extends Controller
         $item = $action->execute($dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-    
+
     public function update(Request $request, $id, UpdateBookingAction $action)
     {
         abort_if_cannot('edit_bookings');
@@ -66,6 +62,11 @@ class BookingController extends Controller
 
     private function prepareData(Request $request) {
         $data = $request->all();
+
+        if (isset($data['service_ids']) && is_string($data['service_ids'])) {
+            $data['service_ids'] = json_decode($data['service_ids'], true);
+        }
+
         foreach (array (
 ) as $f) {
             if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) $data[$f] = json_decode($data[$f], true);

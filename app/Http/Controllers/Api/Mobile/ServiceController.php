@@ -5,69 +5,81 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Http\Controllers\Controller;
 use App\Models\BerberApp\Service;
 use Illuminate\Http\Request;
-use App\Domain\BerberApp\Service\DTOs\ServiceDTO;
-use App\Domain\BerberApp\Service\Actions\CreateServiceAction;
-use App\Domain\BerberApp\Service\Actions\UpdateServiceAction;
-
 
 class ServiceController extends Controller
 {
     public function index()
     {
         abort_if_cannot('view_services');
-        $items = Service::query()->latest()->paginate(50);
-        $items->getCollection()->transform(fn($i) => $this->transformItem($i));
+        $items = Service::latest()->paginate(50);
+        $items->getCollection()->transform(function($i) {
+            $i->append('translated_name');
+            return $i;
+        });
         return response()->json($items);
     }
-    
-    public function store(Request $request, CreateServiceAction $action)
+
+    public function store(Request $request)
     {
         abort_if_cannot('add_services');
-        $data = $this->prepareData($request);
-        $dto = ServiceDTO::fromArray($data);
-        $item = $action->execute($dto);
-        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
+        $data = $request->validate([
+            'name' => 'required',
+            'price' => 'required|numeric',
+            'duration_minutes' => 'required|integer',
+            'image' => 'nullable|image|max:2048'
+        ]);
+
+        if (is_string($data['name'])) {
+            $data['name'] = json_decode($data['name'], true) ?? $data['name'];
+        }
+
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $name = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads'), $name);
+            $data['image'] = 'uploads/' . $name;
+        }
+
+        $item = Service::create($data);
+        return response()->json(['success' => true, 'data' => $item]);
     }
-    
-    public function update(Request $request, $id, UpdateServiceAction $action)
+
+    public function update(Request $request, $id)
     {
         abort_if_cannot('edit_services');
         $item = Service::findOrFail($id);
-        $data = $this->prepareData($request);
-        $dto = ServiceDTO::fromArray($data);
-        $item = $action->execute($item, $dto);
-        return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
+
+        $data = $request->validate([
+            'name' => 'required',
+            'price' => 'required|numeric',
+            'duration_minutes' => 'required|integer',
+            'image' => 'nullable'
+        ]);
+
+        if (is_string($data['name'])) {
+            $data['name'] = json_decode($data['name'], true) ?? $data['name'];
+        }
+
+        if ($request->hasFile('image')) {
+            if ($item->image && file_exists(public_path($item->image))) @unlink(public_path($item->image));
+            $file = $request->file('image');
+            $name = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads'), $name);
+            $data['image'] = 'uploads/' . $name;
+        } else {
+            unset($data['image']);
+        }
+
+        $item->update($data);
+        return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function destroy($id)
     {
         abort_if_cannot('delete_services');
-        try {
-            $item = Service::findOrFail($id);
-            $item->delete();
-            return response()->json(['success' => true]);
-        } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Ky rekord është i lidhur me të dhëna të tjera.'], 400);
-        }
-    }
-
-    private function transformItem($item) {
-        foreach (array (
-  0 => 'name',
-) as $f) {
-            $val = $item->getRawOriginal($f);
-            $item->setAttribute("{$f}_raw", is_string($val) && str_starts_with($val, '{') ? json_decode($val, true) : $val);
-        }
-        return $item;
-    }
-
-    private function prepareData(Request $request) {
-        $data = $request->all();
-        foreach (array (
-  0 => 'name',
-) as $f) {
-            if (isset($data[$f]) && is_string($data[$f]) && str_starts_with($data[$f], '{')) $data[$f] = json_decode($data[$f], true);
-        }
-        return $data;
+        $item = Service::findOrFail($id);
+        if ($item->image && file_exists(public_path($item->image))) @unlink(public_path($item->image));
+        $item->delete();
+        return response()->json(['success' => true]);
     }
 }

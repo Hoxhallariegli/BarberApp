@@ -11,7 +11,15 @@
         </div>
     </td>
     <td class="px-6 py-5">
-        <span class="px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[11px] font-bold">{{ $item->service?->name ?? '-' }}</span>
+        <div class="flex flex-wrap gap-1">
+            @if($item->services->isNotEmpty())
+                @foreach($item->services as $svc)
+                    <span class="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase">{{ $svc->translated_name }}</span>
+                @endforeach
+            @else
+                <span class="px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[11px] font-bold">{{ $item->service?->translated_name ?? '-' }}</span>
+            @endif
+        </div>
     </td>
     <td class="px-6 py-5 text-gray-600 dark:text-gray-300 font-medium">
         {{ $item->appointment_datetime?->format('d/m/Y') }}
@@ -30,16 +38,38 @@
             {{ __($item->status ?? 'pending') }}
         </x-badge>
     </td>
+    <td class="px-6 py-5 text-right font-black text-gray-900 dark:text-white">
+        {{ number_format($item->total_price ?: ($item->service?->price ?? 0), 0) }} <span class="text-[9px] text-gray-400">Lek</span>
+    </td>
     <td class="px-6 py-5 text-right !transition-none">
         <div class="flex justify-end gap-3 !transition-none">
-            @if($item->status !== 'completed')
+            @if(in_array($item->status, ['pending', 'confirmed']))
                 <button
                     wire:click="$parent.openDoneModal('{{ $item->id }}')"
                     class="!rounded-xl !bg-emerald-50 dark:!bg-emerald-900/30 !text-emerald-600 dark:!text-emerald-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none hover:scale-105 transition-transform"
                 >
                     {{ __('Done') }}
                 </button>
+
+                <div x-data="{ confirmation: '' }" x-cloak class="inline-block">
+                    <x-modal>
+                        <x-slot name="trigger">
+                            <button @click="on = true" class="!rounded-xl !bg-red-50 dark:!bg-red-900/30 !text-red-600 dark:!text-red-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none hover:scale-105 transition-transform">
+                                {{ __('Anullo') }}
+                            </button>
+                        </x-slot>
+                        <x-slot name="modalTitle"><div class="text-left dark:text-white">{{ __('Anullo Rezervimin') }} #{{ $item->id }}?</div></x-slot>
+                        <x-slot name="content"><div class="text-left space-y-2"><p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Jeni i sigurt që dëshironi të anulloni këtë rezervim?') }}</p></div></x-slot>
+                        <x-slot name="footer">
+                            <x-button variant="gray" @click="on = false">{{ __('admin.Cancel') }}</x-button>
+                            <x-button variant="red" wire:click="$parent.cancelBooking('{{ $item->id }}')" @click="on = false">
+                                {{ __('Konfirmo Anullimin') }}
+                            </x-button>
+                        </x-slot>
+                    </x-modal>
+                </div>
             @endif
+
             @can('edit_bookings')
                 <x-a href="{{ route('admin.bookings.edit', $item) }}" class="!rounded-xl !bg-blue-50 dark:!bg-blue-900/30 !text-blue-600 dark:!text-blue-400 !px-4 !py-1.5 !text-[10px] !font-black !uppercase !border-none">{{ __('admin.Edit') }}</x-a>
             @endcan

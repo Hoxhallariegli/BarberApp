@@ -156,7 +156,7 @@
                             </span>
                         </div>
 
-                        <h3 class="font-display text-2xl tracking-wide mb-2 uppercase">{{ $item->name }}</h3>
+                        <h3 class="font-display text-2xl tracking-wide mb-2 uppercase">{{ $item->translated_name }}</h3>
                         <p class="text-ink/55 dark:text-paper/55 text-sm leading-relaxed mb-8">
                             {{ __('front/berber-app.services_subtitle') }}
                         </p>
@@ -310,7 +310,7 @@
                                 <x-heroicon-o-calendar class="size-5"/>
                             </div>
                             <div>
-                                <h4 class="font-bold text-sm uppercase">{{ $selectedService->name }}</h4>
+                                <h4 class="font-bold text-sm uppercase">{{ $selectedService->translated_name }}</h4>
                                 <p class="text-ink/60 dark:text-paper/60 text-xs">{{ Carbon\Carbon::parse($selectedDate)->format('d M Y') }} - {{ $selectedTime }}</p>
                             </div>
                         </div>

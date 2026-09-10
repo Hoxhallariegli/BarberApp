@@ -16,12 +16,14 @@ class PaymentController extends Controller
     {
         abort_if_cannot('view_payments');
         $items = Payment::query()->with(array (
-  0 => 'booking',
+  0 => 'booking.customer',
+  1 => 'booking.service',
+  2 => 'booking.services',
 ))->latest()->paginate(50);
         $items->getCollection()->transform(fn($i) => $this->transformItem($i));
         return response()->json($items);
     }
-    
+
     public function store(Request $request, CreatePaymentAction $action)
     {
         abort_if_cannot('add_payments');
@@ -30,7 +32,7 @@ class PaymentController extends Controller
         $item = $action->execute($dto);
         return response()->json(['success' => true, 'data' => $this->transformItem($item)]);
     }
-    
+
     public function update(Request $request, $id, UpdatePaymentAction $action)
     {
         abort_if_cannot('edit_payments');

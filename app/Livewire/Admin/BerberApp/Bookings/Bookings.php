@@ -45,11 +45,11 @@ class Bookings extends Component
         ], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
 
         return view('livewire.admin.berber-app.bookings.index', [
-            'items' => $query->with(['customer', 'barber', 'service'])->paginate($this->paginate),
+            'items' => $query->with(['customer', 'barber', 'service', 'services'])->paginate($this->paginate),
             'sortableFields' => Booking::sortable(),
             'customers' => \App\Models\BerberApp\Customer::pluck('name', 'id')->toArray(),
             'barbers' => \App\Models\BerberApp\Barber::pluck('name', 'id')->toArray(),
-            'services' => \App\Models\BerberApp\Service::pluck('name', 'id')->toArray(),
+            'services' => \App\Models\BerberApp\Service::get()->pluck('translated_name', 'id')->toArray(),
         ])->layout('components.layouts.app')->title(__('bookings.Bookings'));
     }
 
@@ -57,11 +57,11 @@ class Bookings extends Component
 
     public function openDoneModal($id)
     {
-        $booking = Booking::with('service')->find($id);
+        $booking = Booking::with(['service', 'services'])->find($id);
         if (!$booking) return;
 
         $this->selectedBookingId = $id;
-        $this->paymentAmount = $booking->service->price ?? 0;
+        $this->paymentAmount = $booking->total_price ?: ($booking->service->price ?? 0);
         $this->selectedCustomerName = $booking->customer_name ?: ($booking->customer?->name ?? 'Klient');
         $this->showingDoneModal = true;
     }
@@ -91,7 +91,19 @@ class Bookings extends Component
         $this->showingDoneModal = false;
         $this->reset(['selectedBookingId', 'paymentAmount', 'selectedCustomerName']);
 
+        $this->dispatch('refresh-bookings');
         $this->dispatch('toast', message: __('Rezervimi u përfundua dhe pagesa u regjistrua.'), type: 'success');
+    }
+
+    public function cancelBooking($id)
+    {
+        abort_if_cannot('edit_bookings');
+        $booking = Booking::find($id);
+        if (!$booking) return;
+
+        $booking->update(['status' => 'cancelled']);
+        $this->dispatch('refresh-bookings');
+        $this->dispatch('toast', message: __('Rezervimi u anullua.'), type: 'warning');
     }
 
     public function deleteBooking($id, DeleteBookingAction $action)

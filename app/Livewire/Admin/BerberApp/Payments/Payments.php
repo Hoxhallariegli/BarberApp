@@ -31,7 +31,7 @@ class Payments extends Component
 ], $this->sortField, $this->sortAsc ? 'asc' : 'desc');
 
         return view('livewire.admin.berber-app.payments.index', [
-            'items' => $query->paginate($this->paginate),
+            'items' => $query->with(['booking.customer', 'booking.services'])->paginate($this->paginate),
             'sortableFields' => Payment::sortable(),
             'bookings' => \App\Models\BerberApp\Booking::pluck('id', 'id')->toArray(),
         ])->layout('components.layouts.app')->title(__('payments.Payments'));

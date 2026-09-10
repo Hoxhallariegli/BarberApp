@@ -16,6 +16,7 @@ class BookingDTO
         public readonly mixed $reminder_enabled = true,
         public readonly mixed $reminder_minutes = 30,
         public readonly mixed $fcm_token = null,
+        public readonly array $service_ids = [],
     ) {}
 
     public static function fromArray(array $data): self { return new self(
@@ -30,6 +31,7 @@ class BookingDTO
             reminder_enabled: $data['reminder_enabled'] ?? true,
             reminder_minutes: $data['reminder_minutes'] ?? 30,
             fcm_token: $data['fcm_token'] ?? null,
+            service_ids: $data['service_ids'] ?? [],
         ); }
 
     public function toArray(): array { return [
@@ -44,5 +46,6 @@ class BookingDTO
             'reminder_enabled' => $this->reminder_enabled,
             'reminder_minutes' => $this->reminder_minutes,
             'fcm_token' => $this->fcm_token,
+            'service_ids' => $this->service_ids,
         ]; }
 }

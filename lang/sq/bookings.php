@@ -29,4 +29,13 @@ return [
   'Total Price' => 'Çmimi Total',
   'Status' => 'Statusi',
   'Notes' => 'Shënime',
+  'Available Slots' => 'Oraret e Lira',
+  'Date' => 'Data',
+  'Services' => 'Shërbimet',
+  'Select services' => 'Zgjidh shërbimin...',
+  'Add to list' => 'Shto në Listë',
+  'No services selected' => 'Asnjë shërbim i zgjedhur',
+  'Select barber and services to see slots' => 'Zgjidhni Berberin, shtoni të paktën një shërbim dhe zgjidhni datën për të parë oraret e lira.',
+  'Total' => 'Total',
+  'No available slots for this date.' => 'Nuk ka orare të lira për këtë datë.',
 ];

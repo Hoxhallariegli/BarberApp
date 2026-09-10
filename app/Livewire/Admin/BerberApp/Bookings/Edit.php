@@ -22,7 +22,8 @@ class Edit extends Component
     public Booking $item;
     public $customer_id = '';
     public $barber_id = '';
-    public $service_id = '';
+    public $service_id = ''; // Temp for dropdown
+    public $service_ids = [];
     public $selectedDate = '';
     public $selectedTime = '';
 
@@ -31,7 +32,10 @@ class Edit extends Component
         $this->item = $booking;
         $this->customer_id = $booking->customer_id;
         $this->barber_id = $booking->barber_id;
-        $this->service_id = $booking->service_id;
+        $this->service_ids = $booking->services()->pluck('ba_services.id')->map(fn($id) => (string)$id)->toArray();
+        if (empty($this->service_ids) && $booking->service_id) {
+            $this->service_ids = [(string)$booking->service_id];
+        }
         $this->selectedDate = $booking->appointment_datetime?->format('Y-m-d');
         $this->selectedTime = $booking->appointment_datetime?->format('H:i');
     }
@@ -43,23 +47,38 @@ class Edit extends Component
     public function refreshBarbers($id) { $this->barber_id = $id; }
 
     #[On('service-created')]
-    public function refreshServices($id) { $this->service_id = $id; }
+    public function refreshServices($id) { $this->service_ids[] = (string)$id; }
 
     public function updatedBarberId() { $this->selectedTime = ''; }
-    public function updatedServiceId() { $this->selectedTime = ''; }
     public function updatedSelectedDate() { $this->selectedTime = ''; }
+
+    public function addService()
+    {
+        if ($this->service_id && !in_array($this->service_id, $this->service_ids)) {
+            $this->service_ids[] = (string)$this->service_id;
+            $this->service_id = '';
+            $this->selectedTime = '';
+        }
+    }
+
+    public function removeService($index)
+    {
+        unset($this->service_ids[$index]);
+        $this->service_ids = array_values($this->service_ids);
+        $this->selectedTime = '';
+    }
 
     public function getAvailableSlotsProperty()
     {
-        if (!$this->selectedDate || !$this->service_id || !$this->barber_id) return [];
+        if (!$this->selectedDate || empty($this->service_ids) || !$this->barber_id) return [];
 
-        $service = Service::find($this->service_id);
         $barber = Barber::find($this->barber_id);
+        if (!$barber) return [];
 
-        if (!$service || !$barber) return [];
+        $totalDuration = Service::whereIn('id', $this->service_ids)->sum('duration_minutes');
 
         $availabilityService = app(AvailabilityService::class);
-        $slots = $availabilityService->getAvailableSlots($barber, Carbon::parse($this->selectedDate), $service->duration_minutes ?: 30);
+        $slots = $availabilityService->getAvailableSlots($barber, Carbon::parse($this->selectedDate), (int)$totalDuration ?: 30);
 
         // Add the current booking's time back to the available slots if it's the same day
         if ($this->item->appointment_datetime && $this->item->appointment_datetime->format('Y-m-d') === $this->selectedDate) {
@@ -82,7 +101,7 @@ class Edit extends Component
     }
 
     protected function getservicesList() {
-        return Service::pluck('name', 'id')->toArray();
+        return Service::get()->pluck('translated_name', 'id')->toArray();
     }
 
     public function render() {
@@ -100,17 +119,21 @@ class Edit extends Component
         $this->validate([
             'customer_id' => 'required',
             'barber_id' => 'required',
-            'service_id' => 'required',
+            'service_ids' => 'required|array|min:1',
             'selectedDate' => 'required|date',
             'selectedTime' => 'required',
+        ], [
+            'selectedTime.required' => 'Ju lutem zgjidhni orarin e rezervimit.',
+            'service_ids.required' => 'Ju lutem shtoni të paktën një shërbim në listë.'
         ]);
 
         $dto = BookingDTO::fromArray([
             'customer_id' => $this->customer_id,
             'barber_id' => $this->barber_id,
-            'service_id' => $this->service_id,
+            'service_id' => $this->service_ids[0],
+            'service_ids' => $this->service_ids,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
-            'locale' => $this->item->locale, // Keep original locale or update to current? Let's keep original
+            'locale' => $this->item->locale,
         ]);
 
         $action->execute($this->item, $dto);

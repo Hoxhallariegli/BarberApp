@@ -72,7 +72,7 @@
                             <tr class="hover:bg-gray-50/30 dark:hover:bg-gray-900/30 transition-colors">
                                 <td class="px-6 py-4 font-bold text-gray-900 dark:text-white">{{ $booking->customer?->name }}</td>
                                 <td class="px-6 py-4 text-gray-500 dark:text-gray-400">{{ $booking->barber?->name ?? 'Any' }}</td>
-                                <td class="px-6 py-4 text-gray-500 dark:text-gray-400">{{ $booking->service?->name }}</td>
+                                <td class="px-6 py-4 text-gray-500 dark:text-gray-400">{{ $booking->service?->translated_name }}</td>
                                 <td class="px-6 py-4 text-gray-500 dark:text-gray-400">{{ $booking->appointment_datetime->format('d/m H:i') }}</td>
                                 <td class="px-6 py-4 text-right">
                                     <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600">

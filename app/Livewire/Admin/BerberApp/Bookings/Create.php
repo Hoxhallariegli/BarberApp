@@ -21,7 +21,8 @@ class Create extends Component
 
     public $customer_id = '';
     public $barber_id = '';
-    public $service_id = '';
+    public $service_id = ''; // Temp for dropdown
+    public $service_ids = [];
     public $selectedDate = '';
     public $selectedTime = '';
 
@@ -37,23 +38,38 @@ class Create extends Component
     public function refreshBarbers($id) { $this->barber_id = $id; }
 
     #[On('service-created')]
-    public function refreshServices($id) { $this->service_id = $id; }
+    public function refreshServices($id) { $this->service_ids[] = (string)$id; }
 
     public function updatedBarberId() { $this->selectedTime = ''; }
-    public function updatedServiceId() { $this->selectedTime = ''; }
     public function updatedSelectedDate() { $this->selectedTime = ''; }
+
+    public function addService()
+    {
+        if ($this->service_id && !in_array($this->service_id, $this->service_ids)) {
+            $this->service_ids[] = (string)$this->service_id;
+            $this->service_id = '';
+            $this->selectedTime = '';
+        }
+    }
+
+    public function removeService($index)
+    {
+        unset($this->service_ids[$index]);
+        $this->service_ids = array_values($this->service_ids);
+        $this->selectedTime = '';
+    }
 
     public function getAvailableSlotsProperty()
     {
-        if (!$this->selectedDate || !$this->service_id || !$this->barber_id) return [];
+        if (!$this->selectedDate || empty($this->service_ids) || !$this->barber_id) return [];
 
-        $service = Service::find($this->service_id);
         $barber = Barber::find($this->barber_id);
+        if (!$barber) return [];
 
-        if (!$service || !$barber) return [];
+        $totalDuration = Service::whereIn('id', $this->service_ids)->sum('duration_minutes');
 
         $availabilityService = app(AvailabilityService::class);
-        return $availabilityService->getAvailableSlots($barber, Carbon::parse($this->selectedDate), $service->duration_minutes ?: 30);
+        return $availabilityService->getAvailableSlots($barber, Carbon::parse($this->selectedDate), (int)$totalDuration ?: 30);
     }
 
     protected function getcustomersList() {
@@ -65,7 +81,7 @@ class Create extends Component
     }
 
     protected function getservicesList() {
-        return Service::pluck('name', 'id')->toArray();
+        return Service::get()->pluck('translated_name', 'id')->toArray();
     }
 
     public function render() {
@@ -82,17 +98,21 @@ class Create extends Component
         $this->validate([
             'customer_id' => 'required',
             'barber_id' => 'required',
-            'service_id' => 'required',
+            'service_ids' => 'required|array|min:1',
             'selectedDate' => 'required|date',
             'selectedTime' => 'required',
+        ], [
+            'selectedTime.required' => 'Ju lutem zgjidhni orarin e rezervimit.',
+            'service_ids.required' => 'Ju lutem shtoni të paktën një shërbim në listë.'
         ]);
 
         $dto = BookingDTO::fromArray([
             'customer_id' => $this->customer_id,
             'barber_id' => $this->barber_id,
-            'service_id' => $this->service_id,
+            'service_id' => $this->service_ids[0],
+            'service_ids' => $this->service_ids,
             'appointment_datetime' => Carbon::parse($this->selectedDate . ' ' . $this->selectedTime)->toDateTimeString(),
-            'status' => 'confirmed', // Admin bookings are confirmed by default
+            'status' => 'confirmed',
             'locale' => app()->getLocale(),
             'reminder_enabled' => true,
         ]);

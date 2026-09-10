@@ -19,7 +19,8 @@ class MobileBookingController extends Controller
         $year = $request->get('year', Carbon::now()->year);
         $barberId = $request->get('barber_id');
 
-        $query = Booking::select(DB::raw('DATE(appointment_datetime) as date'), DB::raw('count(*) as count'))
+        $query = DB::table('ba_bookings')
+            ->select(DB::raw('DATE(appointment_datetime) as booking_date'), DB::raw('count(*) as total'))
             ->whereMonth('appointment_datetime', $month)
             ->whereYear('appointment_datetime', $year)
             ->where('status', '!=', 'cancelled');
@@ -28,9 +29,9 @@ class MobileBookingController extends Controller
             $query->where('barber_id', $barberId);
         }
 
-        $stats = $query->groupBy('date')
+        $stats = $query->groupBy(DB::raw('DATE(appointment_datetime)'))
             ->get()
-            ->pluck('count', 'date');
+            ->pluck('total', 'booking_date');
 
         return response()->json(['data' => $stats]);
     }
@@ -42,8 +43,7 @@ class MobileBookingController extends Controller
         $barberId = $request->get('barber_id');
         $now = Carbon::now();
 
-        // 1. Marrim te gjitha rezervimet per kete date dhe filter (nese ka)
-        $query = Booking::with(['customer', 'barber', 'service'])
+        $query = Booking::with(['customer', 'barber', 'service', 'services'])
             ->whereDate('appointment_datetime', $dateStr)
             ->where('status', '!=', 'cancelled')
             ->orderBy('appointment_datetime');
@@ -54,23 +54,11 @@ class MobileBookingController extends Controller
 
         $bookings = $query->get();
 
-        // Shtojme ticks (reminders)
-        $bookings->transform(function($b) {
-            $b->ticks = DB::table('ba_reminders')
-                ->where('booking_id', $b->id)
-                ->whereNotNull('sent_at')
-                ->count();
-            return $b;
-        });
-
-        // 2. Nese eshte perzgjedhur nje berber, krijojme timeline me orare pune
         if ($barberId && $barberId !== 'null' && $barberId !== '') {
             $barber = Barber::find($barberId);
             if (!$barber) return response()->json(['data' => [], 'mode' => 'list']);
 
             $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
-
-            // Edhe nese nuk ka orar pune, tregojme rezervimet qe ka
             $startStr = $schedule?->start_time ?: '08:00';
             $endStr = $schedule?->end_time ?: '21:00';
             $isWorking = $schedule?->is_working ?? true;
@@ -79,80 +67,51 @@ class MobileBookingController extends Controller
             $start = Carbon::parse($dateStr . ' ' . $startStr);
             $end = Carbon::parse($dateStr . ' ' . $endStr);
 
-            // Shkojme me hapa 15 minuta per precizion maksimal
+            if (!$isWorking) return response()->json(['data' => [], 'mode' => 'timeline', 'message' => 'Pushim']);
+
             while ($start < $end) {
                 $currentTime = $start->format('H:i');
 
-                // A ka rezervim qe nis fiks ketu?
-                $exactBooking = $bookings->first(fn($b) => Carbon::parse($b->appointment_datetime)->format('H:i') === $currentTime);
-
-                // A eshte kjo minute e zene nga nje rezervim qe ka nisur me pare?
-                $isOccupied = $bookings->contains(function($b) use ($start) {
+                $bookingAtThisTime = $bookings->first(function($b) use ($start) {
                     $bStart = Carbon::parse($b->appointment_datetime);
-                    $duration = $b->service ? ($b->service->duration_minutes ?: 30) : 30;
+                    $duration = $b->services->isNotEmpty() ? $b->services->sum('duration_minutes') : ($b->service ? ($b->service->duration_minutes ?: 30) : 30);
                     $bEnd = (clone $bStart)->addMinutes($duration);
                     return $start >= $bStart && $start < $bEnd;
                 });
 
-                if ($exactBooking) {
-                    $slots[] = [
-                        'time' => $currentTime,
-                        'booking' => $exactBooking,
-                        'is_free' => false
-                    ];
-                    $duration = $exactBooking->service ? ($exactBooking->service->duration_minutes ?: 30) : 30;
-                    $start->addMinutes($duration);
-                    continue;
-                }
-
-                // Shfaqim slot te lire vetem nese berberi punon dhe koha nuk ka kaluar
-                if (!$isOccupied && $isWorking) {
-                    $isPast = $selectedDate->isToday() ? $start->lt($now) : $selectedDate->isPast();
-
-                    if (!$isPast && ($start->minute == 0 || $start->minute == 30)) {
-                        $slots[] = [
-                            'time' => $currentTime,
-                            'booking' => null,
-                            'is_free' => true
-                        ];
+                if ($bookingAtThisTime) {
+                    if (Carbon::parse($bookingAtThisTime->appointment_datetime)->format('H:i') === $currentTime) {
+                        $slots[] = ['time' => $currentTime, 'booking' => $bookingAtThisTime, 'is_free' => false];
                     }
+                } else {
+                    $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
                 }
-
                 $start->addMinutes(15);
             }
-
-            // Nese kemi rezervime jashte orarit zyrtar, i shtojme ne fund te listes
-            foreach ($bookings as $b) {
-                $bTime = Carbon::parse($b->appointment_datetime)->format('H:i');
-                if (!collect($slots)->contains('time', $bTime)) {
-                    $slots[] = ['time' => $bTime, 'booking' => $b, 'is_free' => false];
-                }
-            }
-
-            // Ri-renditim slotet sipas kohes
-            usort($slots, fn($a, $b) => strcmp($a['time'], $b['time']));
-
             return response()->json(['data' => $slots, 'mode' => 'timeline']);
         }
 
-        // 3. Per "Te Gjithe", kthejme listen e thjeshte te rezervimeve
-        return response()->json([
-            'data' => $bookings->map(fn($b) => [
-                'time' => Carbon::parse($b->appointment_datetime)->format('H:i'),
-                'booking' => $b,
-                'is_free' => false
-            ]),
-            'mode' => 'list'
-        ]);
+        return response()->json(['data' => $bookings->map(fn($b) => ['time' => Carbon::parse($b->appointment_datetime)->format('H:i'), 'booking' => $b, 'is_free' => false]), 'mode' => 'list']);
     }
 
     public function availableSlots(Request $request)
     {
-        $barber = Barber::findOrFail($request->barber_id);
-        $service = Service::findOrFail($request->service_id);
+        $barberId = $request->barber_id;
+        if (!$barberId) return response()->json(['data' => []]);
+
+        $barber = Barber::findOrFail($barberId);
         $date = Carbon::parse($request->date);
+        $excludeId = $request->get('exclude_booking_id');
+        if ($excludeId === 'null' || $excludeId === '') $excludeId = null;
+
+        $duration = (int) $request->get('duration_minutes');
+        if (!$duration && $request->service_id) {
+            $service = Service::find($request->service_id);
+            $duration = $service?->duration_minutes ?: 30;
+        }
+
         $availabilityService = app(AvailabilityService::class);
-        $slots = $availabilityService->getAvailableSlots($barber, $date, $service->duration_minutes ?: 30);
+        $slots = $availabilityService->getAvailableSlots($barber, $date, $duration ?: 30, $excludeId);
         return response()->json(['data' => $slots]);
     }
 }

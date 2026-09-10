@@ -25,10 +25,23 @@ class CreateBookingAction
         // Sigurohemi qe checkbox-et (true/false) te jene booleane
         $data['reminder_enabled'] = filter_var($data['reminder_enabled'], FILTER_VALIDATE_BOOLEAN);
 
+        $serviceIds = array_map('intval', (array) ($data['service_ids'] ?? []));
+        unset($data['service_ids']);
+
+        // Nese kemi service_ids, marrim te parin per service_id (per kompatibilitet)
+        if (!empty($serviceIds)) {
+            $data['service_id'] = $serviceIds[0];
+        }
+
         $item = Booking::create($data);
 
+        // Lidhim shërbimet në pivot table
+        if (!empty($serviceIds)) {
+            $item->services()->sync($serviceIds);
+        }
+
         // Ngarkojme relacionet qe te kemi akses te telefonat/emrat
-        $item->load(['customer', 'barber', 'service']);
+        $item->load(['customer', 'barber', 'service', 'services']);
 
         AuditTrail::log($item, 'create', 'Bookings');
 
@@ -67,6 +80,15 @@ class CreateBookingAction
                 'reminder_type' => 'sms_and_push',
                 'send_at' => Carbon::parse($item->appointment_datetime)->subMinutes((int)$item->reminder_minutes),
                 'status' => 'pending',
+            ]);
+        }
+
+        // Generate payment if created as completed
+        if ($item->status === 'completed') {
+            \App\Models\BerberApp\Payment::create([
+                'booking_id' => $item->id,
+                'amount' => $item->total_price ?: ($item->service?->price ?? 0),
+                'status' => 'paid',
             ]);
         }
 

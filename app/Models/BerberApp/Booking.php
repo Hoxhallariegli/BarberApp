@@ -28,6 +28,13 @@ class Booking extends Model
 
     public function service(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(\App\Models\BerberApp\Service::class, 'service_id'); }
 
+    public function services(): \Illuminate\Database\Eloquent\Relations\BelongsToMany { return $this->belongsToMany(\App\Models\BerberApp\Service::class, 'ba_booking_service', 'booking_id', 'service_id'); }
+
+    public function getTotalPriceAttribute(): float {
+        if (!$this->relationLoaded('services')) return 0;
+        return (float) $this->services->sum('price');
+    }
+
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\BerberApp\Payment::class, 'booking_id'); }
 
     protected static function boot()
