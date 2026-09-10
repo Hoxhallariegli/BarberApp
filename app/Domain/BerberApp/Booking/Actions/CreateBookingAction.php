@@ -3,9 +3,13 @@
 namespace App\Domain\BerberApp\Booking\Actions;
 
 use App\Models\BerberApp\Booking;
+use App\Models\BerberApp\Service;
+use App\Models\BerberApp\Barber;
 use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use App\Models\AuditTrail;
+use App\Services\AvailabilityService;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class CreateBookingAction
 {
@@ -22,33 +26,44 @@ class CreateBookingAction
             $data['customer_id'] = $customer->id;
         }
 
-        // Sigurohemi qe checkbox-et (true/false) te jene booleane
         $data['reminder_enabled'] = filter_var($data['reminder_enabled'], FILTER_VALIDATE_BOOLEAN);
-
         $serviceIds = array_map('intval', (array) ($data['service_ids'] ?? []));
         unset($data['service_ids']);
 
-        // Nese kemi service_ids, marrim te parin per service_id (per kompatibilitet)
         if (!empty($serviceIds)) {
             $data['service_id'] = $serviceIds[0];
         }
 
+        // VALIDIMI I DISPONUESHMERISE (MANDATORY)
+        $barber = Barber::findOrFail($data['barber_id']);
+        $start = Carbon::parse($data['appointment_datetime']);
+
+        $totalDuration = 0;
+        if (!empty($serviceIds)) {
+            $totalDuration = Service::whereIn('id', $serviceIds)->sum('duration_minutes');
+        } else if (isset($data['service_id'])) {
+            $s = Service::find($data['service_id']);
+            $totalDuration = $s?->duration_minutes ?: 30;
+        }
+
+        $availabilityService = app(AvailabilityService::class);
+        if (!$availabilityService->isSlotAvailable($barber, $start, $totalDuration ?: 30)) {
+            throw ValidationException::withMessages([
+                'appointment_datetime' => ['Ky orar është i zënë ose nuk mjafton koha për shërbimet e zgjedhura.'],
+            ]);
+        }
+
         $item = Booking::create($data);
 
-        // Lidhim shërbimet në pivot table
         if (!empty($serviceIds)) {
             $item->services()->sync($serviceIds);
         }
 
-        // Ngarkojme relacionet qe te kemi akses te telefonat/emrat
         $item->load(['customer', 'barber', 'service', 'services']);
-
         AuditTrail::log($item, 'create', 'Bookings');
 
-        // Marrim telefonin saktesisht
         $phone = $item->customer_phone ?: ($item->customer ? $item->customer->phone : null);
 
-        // ZGJIDHJA: Dergojme SMS konfirmimi VETEM nese reminder_enabled eshte True
         if ($phone && $item->reminder_enabled) {
             $phone = $this->formatPhone($phone);
             $smsService = app(\App\Services\SmsService::class);
@@ -84,7 +99,6 @@ class CreateBookingAction
             ]);
         }
 
-        // Generate payment if created as completed
         if ($item->status === 'completed') {
             \App\Models\BerberApp\Payment::create([
                 'booking_id' => $item->id,

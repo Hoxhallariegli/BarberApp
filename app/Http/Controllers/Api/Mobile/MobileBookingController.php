@@ -62,7 +62,6 @@ class MobileBookingController extends Controller
             if (!$barber) return response()->json(['data' => [], 'mode' => 'list']);
 
             $schedule = $barber->schedules()->where('day_of_week', $selectedDate->dayOfWeek)->first();
-
             if (!$schedule || !$schedule->is_working) {
                 return response()->json(['data' => [], 'mode' => 'timeline', 'message' => 'Berberi është pushim sot.']);
             }
@@ -73,28 +72,41 @@ class MobileBookingController extends Controller
             $timeline = [];
             $currentTime = $start->copy();
 
-            // RREGULLI I RI: Eci vetem me hapa 15 minutash (Standard)
             while ($currentTime < $end) {
                 $timeStr = $currentTime->format('H:i');
 
-                // Kontrollojme nese ka rezervim ne kete moment
+                // Kontrollojme nese ka rezervim qe fillon SAKT ne kete moment
                 $booking = $bookings->first(function($b) use ($timeStr) {
                    return $b->local_time === $timeStr;
                 });
 
                 if ($booking) {
                     $timeline[] = ['time' => $timeStr, 'booking' => $booking, 'is_free' => false];
-                    $duration = $booking->services->isNotEmpty() ? $booking->services->sum('duration_minutes') : ($booking->service ? $booking->service->duration_minutes : 30);
 
-                    // Avancojme kohen pas rezervimit te rrumbullakosur ne 15 minutat me te aferta
-                    $rawEnd = (clone $currentTime)->addMinutes((int)$duration);
-                    $currentTime->addMinutes(ceil($duration / 15) * 15);
-                } else {
-                    // Shto sllot te lire vetem ne minutat 00, 15, 30, 45
-                    if ($currentTime->minute % 15 == 0) {
-                        $timeline[] = ['time' => $timeStr, 'booking' => null, 'is_free' => true];
-                    }
+                    // KRITIKE: Avancojme currentTime me kohezgjatjen reale te sherbimit
+                    $duration = $booking->services->isNotEmpty()
+                        ? $booking->services->sum('duration_minutes')
+                        : ($booking->service ? ($booking->service->duration_minutes ?: 30) : 30);
+
+                    // Kapercimi i kohes se zene
+                    $currentTime->addMinutes((int)$duration);
+                    continue;
+                }
+
+                // Kontrollojme nese jemi brenda nje rezervimi qe ka filluar me heret (Safety Check)
+                $isInside = $bookings->contains(function($b) use ($currentTime) {
+                    $bStart = Carbon::parse($b->getRawOriginal('appointment_datetime'));
+                    $dur = $b->services->isNotEmpty() ? $b->services->sum('duration_minutes') : ($b->service ? ($b->service->duration_minutes ?: 30) : 30);
+                    $bEnd = (clone $bStart)->addMinutes($dur);
+                    return $currentTime >= $bStart && $currentTime < $bEnd;
+                });
+
+                if (!$isInside) {
+                    $timeline[] = ['time' => $timeStr, 'booking' => null, 'is_free' => true];
                     $currentTime->addMinutes(15);
+                } else {
+                    // Nese jemi brenda, avancojme derisa te dalim nga rezervimi
+                    $currentTime->addMinutes(5);
                 }
             }
 
@@ -111,24 +123,14 @@ class MobileBookingController extends Controller
     {
         $barberId = $request->barber_id;
         if (!$barberId) return response()->json(['data' => []]);
-
         $barber = Barber::findOrFail($barberId);
         $date = Carbon::parse($request->date);
         $excludeId = $request->get('exclude_booking_id');
         $includePast = filter_var($request->get('include_past'), FILTER_VALIDATE_BOOLEAN);
-
         $duration = (int) $request->get('duration_minutes');
         if (!$duration) $duration = 15;
-
         $availabilityService = app(AvailabilityService::class);
         $slots = $availabilityService->getAvailableSlots($barber, $date, max($duration, 15), $excludeId, $includePast);
-
-        // FILTRIMI I SLLOTEVE: Vetem hapa 15 minutash (00, 15, 30, 45)
-        $slots = array_values(array_filter($slots, function($s) {
-            $min = (int)substr($s, 3, 2);
-            return $min % 15 === 0;
-        }));
-
         return response()->json(['data' => $slots]);
     }
 }

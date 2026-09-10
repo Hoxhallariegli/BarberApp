@@ -3,9 +3,13 @@
 namespace App\Domain\BerberApp\Booking\Actions;
 
 use App\Models\BerberApp\Booking;
+use App\Models\BerberApp\Service;
+use App\Models\BerberApp\Barber;
 use App\Domain\BerberApp\Booking\DTOs\BookingDTO;
 use App\Models\AuditTrail;
+use App\Services\AvailabilityService;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class UpdateBookingAction
 {
@@ -23,6 +27,24 @@ class UpdateBookingAction
             $data['service_id'] = $serviceIds[0];
         }
 
+        // VALIDIMI I DISPONUESHMERISE (MANDATORY)
+        $barber = Barber::findOrFail($data['barber_id'] ?? $model->barber_id);
+        $start = Carbon::parse($data['appointment_datetime'] ?? $model->appointment_datetime);
+
+        $totalDuration = 0;
+        if (!empty($serviceIds)) {
+            $totalDuration = Service::whereIn('id', $serviceIds)->sum('duration_minutes');
+        } else {
+            $totalDuration = $model->services->sum('duration_minutes') ?: ($model->service?->duration_minutes ?: 30);
+        }
+
+        $availabilityService = app(AvailabilityService::class);
+        if (!$availabilityService->isSlotAvailable($barber, $start, $totalDuration ?: 30, $model->id)) {
+            throw ValidationException::withMessages([
+                'appointment_datetime' => ['Ky orar është i zënë ose nuk mjafton koha për shërbimet e zgjedhura.'],
+            ]);
+        }
+
         $model->fill($data);
         $model->save();
 
@@ -33,7 +55,6 @@ class UpdateBookingAction
         if ($oldTime != $model->appointment_datetime) {
             $reminder = $model->reminders()->where('status', 'pending')->first();
             if ($reminder) {
-                // Llogarisim oren e re te dergimit bazuar te minutat e rikujteses
                 $minutes = (int)($model->reminder_minutes ?: 30);
                 $newSendAt = Carbon::parse($model->appointment_datetime)->subMinutes($minutes);
                 $reminder->update(['send_at' => $newSendAt]);
