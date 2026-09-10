@@ -29,11 +29,13 @@ class UpdateBookingAction
         // Sync services to pivot table
         $model->services()->sync($serviceIds);
 
-        // Update Reminder if time has changed
+        // Update Reminder if time has changed and it is still pending
         if ($oldTime != $model->appointment_datetime) {
             $reminder = $model->reminders()->where('status', 'pending')->first();
             if ($reminder) {
-                $newSendAt = Carbon::parse($model->appointment_datetime)->subMinutes((int)$model->reminder_minutes);
+                // Llogarisim oren e re te dergimit bazuar te minutat e rikujteses
+                $minutes = (int)($model->reminder_minutes ?: 30);
+                $newSendAt = Carbon::parse($model->appointment_datetime)->subMinutes($minutes);
                 $reminder->update(['send_at' => $newSendAt]);
             }
         }

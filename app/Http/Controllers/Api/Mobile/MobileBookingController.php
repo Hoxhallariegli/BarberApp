@@ -41,7 +41,6 @@ class MobileBookingController extends Controller
         $dateStr = $request->get('date', Carbon::today()->toDateString());
         $selectedDate = Carbon::parse($dateStr);
         $barberId = $request->get('barber_id');
-        $now = Carbon::now();
 
         $query = Booking::with(['customer', 'barber', 'service', 'services'])
             ->whereDate('appointment_datetime', $dateStr)
@@ -54,9 +53,8 @@ class MobileBookingController extends Controller
 
         $bookings = $query->get();
 
-        // Shto oren lokale si string ne cdo rezervim per te shmangur gabimet e zonave kohore ne Flutter
         $bookings->each(function($b) {
-            $b->local_time = Carbon::parse($b->appointment_datetime)->format('H:i');
+            $b->local_time = substr($b->getRawOriginal('appointment_datetime'), 11, 5);
         });
 
         if ($barberId && $barberId !== 'null' && $barberId !== '') {
@@ -69,40 +67,42 @@ class MobileBookingController extends Controller
                 return response()->json(['data' => [], 'mode' => 'timeline', 'message' => 'Berberi është pushim sot.']);
             }
 
-            $startStr = $schedule->start_time ?: '09:00';
-            $endStr = $schedule->end_time ?: '21:00';
+            $start = Carbon::parse($dateStr . ' ' . ($schedule->start_time ?: '09:00'));
+            $end = Carbon::parse($dateStr . ' ' . ($schedule->end_time ?: '21:00'));
 
-            $slots = [];
-            $start = Carbon::parse($dateStr . ' ' . $startStr);
-            $end = Carbon::parse($dateStr . ' ' . $endStr);
+            $timeline = [];
+            $currentTime = $start->copy();
 
-            while ($start < $end) {
-                $currentTime = $start->format('H:i');
+            // RREGULLI I RI: Eci vetem me hapa 15 minutash (Standard)
+            while ($currentTime < $end) {
+                $timeStr = $currentTime->format('H:i');
 
-                $bookingAtThisTime = $bookings->first(function($b) use ($currentTime) {
-                   return $b->local_time === $currentTime;
+                // Kontrollojme nese ka rezervim ne kete moment
+                $booking = $bookings->first(function($b) use ($timeStr) {
+                   return $b->local_time === $timeStr;
                 });
 
-                if ($bookingAtThisTime) {
-                    $slots[] = ['time' => $currentTime, 'booking' => $bookingAtThisTime, 'is_free' => false];
-                    $duration = $bookingAtThisTime->services->isNotEmpty()
-                        ? $bookingAtThisTime->services->sum('duration_minutes')
-                        : ($bookingAtThisTime->service ? ($bookingAtThisTime->service->duration_minutes ?: 30) : 30);
-                    $start->addMinutes($duration);
+                if ($booking) {
+                    $timeline[] = ['time' => $timeStr, 'booking' => $booking, 'is_free' => false];
+                    $duration = $booking->services->isNotEmpty() ? $booking->services->sum('duration_minutes') : ($booking->service ? $booking->service->duration_minutes : 30);
+
+                    // Avancojme kohen pas rezervimit te rrumbullakosur ne 15 minutat me te aferta
+                    $rawEnd = (clone $currentTime)->addMinutes((int)$duration);
+                    $currentTime->addMinutes(ceil($duration / 15) * 15);
                 } else {
-                    $slots[] = ['time' => $currentTime, 'booking' => null, 'is_free' => true];
-                    $start->addMinutes(15);
+                    // Shto sllot te lire vetem ne minutat 00, 15, 30, 45
+                    if ($currentTime->minute % 15 == 0) {
+                        $timeline[] = ['time' => $timeStr, 'booking' => null, 'is_free' => true];
+                    }
+                    $currentTime->addMinutes(15);
                 }
             }
-            return response()->json(['data' => $slots, 'mode' => 'timeline']);
+
+            return response()->json(['data' => $timeline, 'mode' => 'timeline']);
         }
 
         return response()->json([
-            'data' => $bookings->map(fn($b) => [
-                'time' => $b->local_time,
-                'booking' => $b,
-                'is_free' => false
-            ]),
+            'data' => $bookings->map(fn($b) => ['time' => $b->local_time, 'booking' => $b, 'is_free' => false]),
             'mode' => 'list'
         ]);
     }
@@ -115,16 +115,20 @@ class MobileBookingController extends Controller
         $barber = Barber::findOrFail($barberId);
         $date = Carbon::parse($request->date);
         $excludeId = $request->get('exclude_booking_id');
-        if ($excludeId === 'null' || $excludeId === '') $excludeId = null;
+        $includePast = filter_var($request->get('include_past'), FILTER_VALIDATE_BOOLEAN);
 
         $duration = (int) $request->get('duration_minutes');
-        if (!$duration && $request->service_id) {
-            $service = Service::find($request->service_id);
-            $duration = $service?->duration_minutes ?: 30;
-        }
+        if (!$duration) $duration = 15;
 
         $availabilityService = app(AvailabilityService::class);
-        $slots = $availabilityService->getAvailableSlots($barber, $date, $duration ?: 30, $excludeId);
+        $slots = $availabilityService->getAvailableSlots($barber, $date, max($duration, 15), $excludeId, $includePast);
+
+        // FILTRIMI I SLLOTEVE: Vetem hapa 15 minutash (00, 15, 30, 45)
+        $slots = array_values(array_filter($slots, function($s) {
+            $min = (int)substr($s, 3, 2);
+            return $min % 15 === 0;
+        }));
+
         return response()->json(['data' => $slots]);
     }
 }

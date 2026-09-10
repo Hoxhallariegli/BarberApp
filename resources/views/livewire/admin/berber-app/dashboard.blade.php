@@ -5,7 +5,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('admin.module_desc_berber-app') }}</p>
         </div>
         <div class="flex items-center gap-3">
-            <x-btn href="/berber-app" target="_blank" icon="globe-alt" variant="secondary">{{ __('admin.View Landing Page') }}</x-btn>
+            <x-btn href="/" target="_blank" icon="globe-alt" variant="secondary">{{ __('admin.View Landing Page') }}</x-btn>
             <x-btn route="admin.bookings.index" icon="plus">{{ __('admin.Add Booking') }}</x-btn>
         </div>
     </div>
