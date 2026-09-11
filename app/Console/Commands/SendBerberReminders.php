@@ -17,9 +17,19 @@ class SendBerberReminders extends Command
 
     public function handle()
     {
+        $now = Carbon::now();
+
+        // 1. Pastrojmë/Anullojmë rikujtesat që kanë kaluar kohën e tyre me më shumë se 2 orë
+        // Kjo parandalon dërgimin e mesazheve të djeshme sot.
+        Reminder::where('status', 'pending')
+            ->where('send_at', '<', $now->copy()->subHours(2))
+            ->update(['status' => 'expired']);
+
+        // 2. Marrim vetëm rikujtesat "e freskëta" që duhen dërguar TANI
         $reminders = Reminder::where('status', 'pending')
-            ->where('send_at', '<=', Carbon::now())
-            ->with(['booking']) // Shtojmë këtë që të lejojë leximin e rezervimit
+            ->where('send_at', '<=', $now)
+            ->where('send_at', '>=', $now->copy()->subHours(2))
+            ->with(['booking'])
             ->get();
 
         foreach ($reminders as $reminder) {
@@ -30,29 +40,21 @@ class SendBerberReminders extends Command
             }
 
             $customerName = $booking->customer_name ?: 'Klient';
+            $phone = $this->formatPhone($booking->customer_phone ?: $booking->customer?->phone);
 
-            // PASTRIMI I NUMRIT (Saktësisht si te Landing)
-            $phone = preg_replace('/[^0-9]/', '', $booking->customer_phone);
-            if (str_starts_with($phone, '355')) { $phone = substr($phone, 3); }
-            $phone = '+355' . substr(ltrim($phone, '0'), 0, 9);
+            if (!$phone) {
+                $reminder->update(['status' => 'failed']);
+                continue;
+            }
 
             $time = Carbon::parse($booking->appointment_datetime)->format('H:i');
             $date = Carbon::parse($booking->appointment_datetime)->format('d/m');
-            $confirmUrl = rtrim(config('app.url'), '/') . "/confirm/{$booking->token}";
-            // Shorten URL by removing https://
-            $shortUrl = str_replace(['https://', 'http://'], '', $confirmUrl);
+            $confirmUrl = str_replace(['https://', 'http://'], '', rtrim(config('app.url'), '/') . "/confirm/{$booking->token}");
 
-            // Use SMS Template with booking locale
             $template = \App\Models\SmsTemplate::getTemplate('reminder', $booking->locale);
-            if ($template) {
-                $body = str_replace(
-                    ['{name}', '{time}', '{date}', '{link_confirm}'],
-                    [$customerName, $time, $date, $shortUrl],
-                    $template
-                );
-            } else {
-                $body = "STATION: Takim ne {$time} - {$date}. Konfirmo: {$shortUrl}";
-            }
+            $body = $template
+                ? str_replace(['{name}', '{time}', '{date}', '{link_confirm}'], [$customerName, $time, $date, $confirmUrl], $template)
+                : "STATION: Takim ne {$time} - {$date}. Konfirmo: {$confirmUrl}";
 
             $extraData = [
                 'show_notification' => 'true',
@@ -64,5 +66,12 @@ class SendBerberReminders extends Command
                 $reminder->update(['status' => 'sent', 'sent_at' => now()]);
             }
         }
+    }
+
+    private function formatPhone($phone) {
+        if (!$phone) return null;
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if (str_starts_with($phone, '355')) $phone = substr($phone, 3);
+        return '+355' . substr(ltrim($phone, '0'), 0, 9);
     }
 }
